@@ -29,3 +29,5 @@ Tradeoff accepted: older chip, no Sensor Fusion Low Power (SFLP) on-chip output.
 ## 2026-04-29: Repository initialized
 
 Private GitHub repository created. Will remain private until submission to IEEE Sensors Letters.
+
+7559266 (HEAD -> main, origin/main) Add pre-registration document for MLC vs. host latency comparison
