@@ -1,7 +1,12 @@
 # Pin assignment — Jetson Orin Nano 40-pin header
 
-Source: `sudo /opt/nvidia/jetson-io/jetson-io.py` after enabling spi1.
-Spidev mapping: `/dev/spidev0.0` → `3210000.spi` (the 40-pin header SPI1).
+Source: `sudo /opt/nvidia/jetson-io/jetson-io.py`. The 40-pin header
+exposes i2c8 on pins 3 (SDA) and 5 (SCL) by default; this maps to
+/dev/i2c-7 in the kernel (verified via i2cdetect 2026-05-01).
+
+SPI was attempted first and abandoned — see lab notebook 2026-05-01 and
+pre-registration amendment 2026-05-01 (evening) for details. SPI device
+nodes (/dev/spidev0.0 etc.) are still enabled in jetson-io but unused.
 
 ## Sensor wiring (LSM6DSOX → Jetson, I2C mode)
 
