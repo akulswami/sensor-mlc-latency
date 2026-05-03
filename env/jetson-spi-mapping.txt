@@ -1,0 +1,4 @@
+/dev/spidev0.0 -> /sys/devices/platform/bus@0/3210000.spi/spi_master/spi0/spi0.0
+/dev/spidev0.1 -> /sys/devices/platform/bus@0/3210000.spi/spi_master/spi0/spi0.1
+/dev/spidev1.0 -> /sys/devices/platform/bus@0/3230000.spi/spi_master/spi1/spi1.0
+/dev/spidev1.1 -> /sys/devices/platform/bus@0/3230000.spi/spi_master/spi1/spi1.1
