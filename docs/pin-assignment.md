@@ -13,7 +13,7 @@ Spidev mapping: `/dev/spidev0.0` → `3210000.spi` (the 40-pin header SPI1).
 | SDA / SDI / MOSI | Pin 19 | spi1_dout  | host -> sensor |
 | SDO / MISO   | Pin 21 | spi1_din       | sensor -> host |
 | CS           | Pin 24 | spi1_cs0       | chip select |
-| INT (INT1)   | Pin 15 | GPIO input     | sensor interrupt to host; also probed by Saleae |
+| I1 (INT1)   | Pin 15 | GPIO input     | sensor interrupt to host; sensor interrupt to host (silkscreen says "I1"); also probed by Saleae. I2 unused. |
 
 ## Measurement-instrumented GPIO
 
