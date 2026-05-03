@@ -1,0 +1,4 @@
+Package: nvidia-jetpack
+Version: 6.2.2+b24
+Section: metapackages
+Description: NVIDIA Jetpack Meta Package
