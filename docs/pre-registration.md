@@ -180,3 +180,67 @@ This document covers the latency comparison only. The following are explicitly o
 - Power consumption.
 - Other classification tasks beyond §4.
 - Other sensors.
+
+---
+
+## Amendment 2026-05-01 (evening): Switch from SPI to I2C for sensor-host bus
+
+**No experimental data has been collected as of this amendment.** This
+amendment is timestamped prior to any measurement code execution beyond
+the WHO_AM_I sanity check.
+
+### Change
+
+The original §5.1, §5.2, and §10 reference SPI as the host-sensor bus.
+SPI bring-up on the Jetson Orin Nano (JetPack 6.2.2, spidev0.0 on the
+40-pin header) failed: the LSM6DSOX did not respond to WHO_AM_I reads
+(returned 0x00 / 0x80 / 0xC0 randomly) despite verified wiring and SPI
+mode 3 configuration. The same sensor responds correctly on I2C at
+address 0x6A on /dev/i2c-7 (Jetson pins 3 and 5).
+
+The host-sensor bus is therefore changed from SPI to I2C for both
+pipelines. The change applies uniformly — both the on-sensor MLC
+pipeline (host reads class label register) and the on-host pipeline
+(host reads raw accelerometer samples) use I2C.
+
+### What is NOT changed
+
+- §1 Research question. Bus choice does not affect the wire-level
+  latency comparison.
+- §2 Hypotheses. All four hypotheses remain as written.
+- §3 Design. Two-factor crossed design unchanged.
+- §6.1 Primary outcome (wire-level latency between INT and decision
+  GPIO). The Saleae captures both edges regardless of host bus protocol.
+- §7 n = 500 per condition.
+- §9 Accuracy parity gate.
+- §11 Exclusion criteria.
+- §12 Statistical analysis plan.
+
+### Effect on the comparison
+
+I2C is slower than SPI for multi-byte reads. This affects both pipelines
+equally for register access. For the on-sensor MLC pipeline the host
+performs a single-byte register read on INT, so bus latency is small.
+For the on-host pipeline the host streams multi-byte raw IMU samples,
+so I2C imposes a larger per-sample read overhead than SPI would.
+
+This makes the on-host pipeline strictly slower than it would have been
+on SPI. The latency comparison is still a valid comparison, but the
+measured difference in favor of MLC will be larger than under an SPI
+implementation. The paper must report and disclose this honestly:
+results are valid for an I2C-based host pipeline, and the magnitude of
+the MLC advantage would be smaller (but presumably still positive) on
+SPI.
+
+### Stop condition (carry-over)
+
+The accuracy parity gate (§9) remains a hard requirement. The change in
+bus protocol does not affect the parity requirement.
+
+### Repository updates
+
+The following files are updated to reflect this change:
+- docs/pin-assignment.md (sensor wiring section)
+- docs/lab-notebook/2026-05-01.md (failure log and decision)
+- code/jetson/host_inference/whoami_test.py (will be replaced with an
+  I2C version before any further work)
