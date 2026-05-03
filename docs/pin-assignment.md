@@ -3,17 +3,20 @@
 Source: `sudo /opt/nvidia/jetson-io/jetson-io.py` after enabling spi1.
 Spidev mapping: `/dev/spidev0.0` → `3210000.spi` (the 40-pin header SPI1).
 
-## Sensor wiring (LSM6DSOX → Jetson)
+## Sensor wiring (LSM6DSOX → Jetson, I2C mode)
 
 | LSM6DSOX pin | Jetson pin | Jetson function | Notes |
 |---|---|---|---|
-| VIN          | Pin 1 or 17 | 3.3V         | Adafruit breakout has on-board regulator; 3.3V or 5V both ok, use 3.3V |
-| GND          | Pin 6, 9, 14, 20, 25, 30, 34, or 39 | GND | any GND |
-| SCL / SCK    | Pin 23 | spi1_sck       | SPI clock |
-| SDA / SDI / MOSI | Pin 19 | spi1_dout  | host -> sensor |
-| SDO / MISO   | Pin 21 | spi1_din       | sensor -> host |
-| CS           | Pin 24 | spi1_cs0       | chip select |
-| I1 (INT1)   | Pin 15 | GPIO input     | sensor interrupt to host; sensor interrupt to host (silkscreen says "I1"); also probed by Saleae. I2 unused. |
+| VIN | Pin 1 or 17 | 3.3V | Adafruit breakout has on-board regulator; 3.3V or 5V both ok, use 3.3V |
+| GND | Pin 6, 9, 14, 20, 25, 30, 34, or 39 | GND | any GND |
+| SCL | Pin 5 | i2c8 SCL | I2C clock; 10K pull-up on Adafruit breakout |
+| SDA | Pin 3 | i2c8 SDA | I2C data; 10K pull-up on Adafruit breakout |
+| I1 (INT1) | Pin 15 | GPIO input | sensor interrupt to host (silkscreen says "I1"); also probed by Saleae. I2 unused. |
+
+Bus number: /dev/i2c-7 (verified via i2cdetect on 2026-05-01).
+Sensor I2C address: 0x6A (default; not jumpered).
+
+SDO and CS pins are unused in I2C mode and are left disconnected.
 
 ## Measurement-instrumented GPIO
 
