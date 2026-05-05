@@ -54,7 +54,7 @@
 
 /* FUNC_CFG_ACCESS bank values */
 #define BANK_USER       0x00
-#define BANK_EMBEDDED   0x40
+#define BANK_EMBEDDED   0x80   /* bit 7 selects embedded func bank; 0x40 was sensor hub */
 
 /* I2C primitives */
 static int i2c_open_and_select(const char *dev, uint8_t addr) {
