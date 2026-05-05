@@ -38,3 +38,10 @@ desktop.ini
 # Local-only files
 *.local
 data/raw/
+
+# Compiled C binaries (mlc_pipeline tools)
+code/jetson/mlc_pipeline/latency_test
+code/jetson/mlc_pipeline/latency_test_mlc_*
+code/jetson/mlc_pipeline/mlc_poll_probe
+code/jetson/mlc_pipeline/mlc_poll_probe2_*
+code/jetson/mlc_pipeline/host_pipeline
