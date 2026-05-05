@@ -455,7 +455,7 @@ The following files are added or updated to reflect this amendment:
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency
 and the commit is tagged as `prereg-amendment-2026-05-05`. The repository
-release is mirrored to Zenodo with DOI to be added here once minted. The
+release is mirrored to Zenodo with DOI: 10.5281/zenodo.20042123 (https://doi.org/10.5281/zenodo.20042123) The
 DOI of the Zenodo release containing this amendment is the authoritative
 external timestamp.
 
