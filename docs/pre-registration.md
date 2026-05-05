@@ -244,3 +244,218 @@ The following files are updated to reflect this change:
 - docs/lab-notebook/2026-05-01.md (failure log and decision)
 - code/jetson/host_inference/whoami_test.py (will be replaced with an
   I2C version before any further work)
+
+---
+
+## Amendment 2026-05-05: Switch classification task from tap detection to binary motion-vs-still
+
+**Data collected under prior protocol that is affected by this amendment:**
+The following datasets were collected under the original tap-detection task
+and are NOT used as training, validation, or test data for the amended task:
+
+- `data/raw/2026-05-04-taps.csv` (44,154 samples, 54 piezo events)
+- `data/raw/2026-05-04-nontaps.csv` (43,265 samples, 0 piezo events)
+- `code/jetson/mlc_pipeline/mlc_accuracy.h` and `mlc_latency.h`
+  (custom-trained tap classifiers)
+
+The bring-up latency data collected on 2026-05-04 (Phase 1: hardware
+single-tap detector at INT_DUR2 sweep, n≈120 events total; Phase 2: on-host
+sliding-window classifier, n=14 events) is descriptive bring-up only and
+was acknowledged as such in the lab notebook (`docs/lab-notebook/2026-05-04.md`,
+"NOT YET ANALYSIS-READY" section). It is not analysis data under the original
+or amended pre-registration. The structural-floor finding from the INT_DUR2
+sweep is retained as a separate methodological observation about the
+LSM6DSOX hardware tap detector and may inform paper discussion but is not
+part of the pre-registered hypothesis tests.
+
+**No pre-registered measurement runs (n=500 per condition) have been
+executed under either the original or amended protocol as of this amendment.**
+
+### Change
+
+The original §4 (classification task) specifies single-tap detection. This
+amendment changes the task to **binary motion-vs-still classification** on
+the LSM6DSOX accelerometer.
+
+### Rationale
+
+Pilot work under the original tap-detection task revealed that the LSM6DSOX
+Machine Learning Core (MLC) is poorly suited to single-tap classification
+at the available window sizes (configurable from ~38 ms to ~2.45 s at 416 Hz
+ODR). Specifically:
+
+1. A single hand-tap is a transient event of approximately 5-10 ms duration.
+   At the MLC's minimum window size (~38 ms, 16 samples), a tap event
+   occupies at most 25-50% of one feature window. Across the available
+   feature library (mean, variance, energy, peak-to-peak, zero-crossings),
+   the signal-to-noise ratio of any feature computed over such a window
+   is poor: the tap's high-amplitude content is diluted by mostly-idle
+   samples within the window.
+
+2. Empirical validation of two custom-trained MLC configurations
+   (window=16/154 ms with 12-leaf tree at 97.21% training accuracy, and
+   window=255/2.45 s with 3-leaf tree at 95.06% training accuracy) showed
+   that the trained classifiers do not achieve the >90% accuracy required
+   by §9 against piezo-confirmed ground truth. The 154 ms window
+   configuration produced ~79% time in the "tap" class during a 16-second
+   idle (no-input) recording, indicating overfitting to training-session
+   noise rather than learning a tap-specific signature.
+
+3. The LSM6DSOX is documented (ST AN5259, datasheet) as targeted at
+   activity-recognition-class workloads — still / walking / running, motion
+   vs no-motion, gesture detection — for which ST publishes validated
+   reference configurations. Tap detection is not in this design envelope;
+   it is handled by the dedicated hardware tap-detection unit, which is a
+   separate signal path on chip.
+
+The original choice of tap detection (per §4 rationale: "ST publishes a
+canonical MLC reference configuration for tap-class events") was based on
+an incorrect characterization of ST's reference materials. ST publishes
+hardware-tap-detector reference register configurations, not MLC reference
+.ucf files for tap. This amendment corrects the resulting task choice.
+
+### New task definition
+
+**Task:** Binary classification of LSM6DSOX accelerometer windows as
+"motion" or "still."
+
+**Operational definitions:**
+
+- **Still:** sensor stationary on a rigid surface (laboratory bench), no
+  human contact with the breakout or its supporting structure, no
+  externally-induced vibration above ambient laboratory noise floor.
+
+- **Motion:** sensor handheld and being moved through any combination of
+  translation and rotation typical of a wearable or handheld device in
+  active use. Includes (without restriction): lifting and replacing the
+  sensor, walking with sensor in hand, hand-held shaking, deliberate
+  rotation. Does NOT include external mechanical impact on the sensor
+  (taps, drops, table strikes), which are out of scope for this amendment.
+
+The task is binary; a multi-class formulation (still / walking / running /
+stationary motion) is explicitly out of scope and reserved for future work.
+
+### Ground truth
+
+Piezo-disc ground truth is replaced for this task. Motion vs still is not
+a transient-event task and a per-event piezo trigger is inappropriate.
+Ground truth is provided by experimenter labeling synchronized to a wall
+clock, recorded in a CSV alongside each data capture: `(epoch_start,
+epoch_end, label)` where `label ∈ {still, motion}`. Epochs are minimum
+3 seconds long. Transitions between states are excluded from analysis (a
+1-second guard band before and after each labeled epoch boundary is
+removed from training/validation/test sets).
+
+This is a methodological deviation from the original protocol's per-trial
+piezo trigger. It is necessary because motion-vs-still is a sustained-state
+classification, not a transient-event classification, and a piezo trigger
+does not provide meaningful ground truth for sustained states.
+
+### Pipelines
+
+**On-sensor MLC pipeline (revised):** The MLC is configured using a
+publicly-available ST reference configuration for activity recognition,
+collapsed to binary by treating any ST-defined "motion" class as "motion"
+and the ST-defined "still" / "stationary" class as "still." The exact ST
+reference .ucf file used is committed to `code/mlc_config/` and its source
+URL and SHA256 hash are committed to `docs/measurement-protocol.md` before
+any data collection.
+
+**On-host pipeline (revised):** The host pipeline computes the same
+feature(s) used by the ST reference MLC configuration, over the same window
+size, and applies the same threshold(s) as the reference decision tree.
+The host implementation is parity-equivalent to the on-sensor decision
+algorithm by construction. Implementation details and the exact feature
+formulas are committed to `docs/measurement-protocol.md`.
+
+This is a stronger parity requirement than the original protocol allowed
+for tap detection, where the host classifier was independently designed.
+Reviewers can verify that the comparison is between the same algorithm
+running in two locations, not between two different algorithms.
+
+### What is NOT changed
+
+- §1 Research question. The wire-level latency comparison between on-sensor
+  and on-host inference placement remains the research question.
+- §2 Hypotheses H1, H2, H3, H4. All four hypotheses are retained as written;
+  they reference "MLC pipeline" and "host pipeline" without reference to
+  the specific task.
+- §3 Design. Two-factor (pipeline × stress) fully-crossed design unchanged.
+- §6 Primary and secondary outcomes (wire-level latency between INT and
+  decision GPIO). Unchanged.
+- §7 n = 500 per condition × 4 conditions = 2,000 trials.
+- §8 Stress condition. Unchanged.
+- §9 Accuracy parity gate (≥90% both, ≤2pp gap). Applies to the new task;
+  the gate threshold is unchanged.
+- §10 Items deferred to Phase B. The list is unchanged in structure; the
+  specific MLC `.ucf` file is now ST's reference file rather than a custom
+  trained file.
+- §11 Exclusion criteria. Unchanged. The "trial" unit for this task is one
+  state-classification window's INT-to-decision-GPIO event, defined exactly
+  as in the original protocol.
+- §12 Statistical analysis plan. Unchanged.
+- §13 Deviations and reporting. Unchanged.
+
+### Effect on the comparison
+
+The change from a transient-event task (tap) to a sustained-state task
+(motion vs still) changes what "trial" means:
+
+- Original: one trial = one piezo-triggered tap event, latency measured from
+  piezo edge (or, equivalently, from the first INT edge in the on-sensor
+  case) to decision-GPIO edge.
+
+- Amended: one trial = one classification-window evaluation by the chip
+  during which the chip's output transitions from one class to another (a
+  state transition event), latency measured from the INT edge marking that
+  transition to the decision-GPIO edge produced by the host on reading the
+  new class.
+
+The wire-level measurement methodology (Saleae captures INT and decision-GPIO
+edges; latency is the difference) is unchanged. What is captured is also
+unchanged: a rising edge on INT, a rising edge on the decision GPIO, and a
+ground-truth signal (now: experimenter labels rather than piezo).
+
+The on-host pipeline now also performs windowed classification and asserts
+its decision GPIO on each window's classification, providing a directly
+comparable measurement. Both pipelines emit one decision per window. Trial
+count is generated by collecting state transitions during alternating
+labeled motion/still epochs.
+
+Latency magnitudes may differ from those that would have been observed
+under the original tap task. The H1, H2, H3, H4 hypotheses are tested on
+whatever latency distributions are produced by the new task. We do not
+predict in advance whether the on-sensor MLC will be faster or slower
+than the on-host pipeline under the new task; H1₀ and H1₁ are the same as
+in the original protocol.
+
+### Stop condition
+
+The accuracy parity gate (§9) is a hard requirement. If the ST reference
+MLC configuration and the parity-matched host implementation do not both
+hit ≥90% on a held-out test set with ≤2pp gap, the latency experiment is
+not run, regardless of how reasonable individual numbers may look.
+
+### Repository updates
+
+The following files are added or updated to reflect this amendment:
+- `docs/measurement-protocol.md` (new): operational definitions, ST .ucf
+  source and hash, host classifier feature/threshold specification, ground
+  truth labeling procedure
+- `code/mlc_config/` (new directory): ST reference .ucf file, source URL,
+  SHA256 hash
+- `data/raw/2026-05-04-taps.csv` and `2026-05-04-nontaps.csv`: retained
+  in the repository for reproducibility, marked as not-used in
+  `data/raw/README.md`
+- `docs/lab-notebook/2026-05-05.md` (new): logs the diagnostic work that
+  led to this amendment, including the bank-constant fix in
+  `latency_test_mlc.c` (FUNC_CFG_ACCESS embedded-bank value 0x40 → 0x80)
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency
+and the commit is tagged as `prereg-amendment-2026-05-05`. The repository
+release is mirrored to Zenodo with DOI to be added here once minted. The
+DOI of the Zenodo release containing this amendment is the authoritative
+external timestamp.
+
