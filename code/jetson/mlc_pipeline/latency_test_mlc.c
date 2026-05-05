@@ -1,21 +1,45 @@
 /*
  * latency_test_mlc.c
  *
- * B6: Wire-level latency measurement of the on-sensor MLC pipeline.
+ * Wire-level latency measurement of the on-sensor MLC pipeline.
  *
- * Loads an MLC configuration (header file generated from MEMS Studio JSON
- * via json_to_header.py), applies it to the LSM6DSOX, then waits for
- * INT1 rising edges (MLC0_SRC change), reads the MLC output, and toggles
- * the decision GPIO if the output indicates a tap.
+ * Loads an MLC configuration (header file in the format produced by
+ * json_to_header.py for MEMS Studio JSON, or by st_h_to_ours.py for
+ * STMicroelectronics-published reference .h files), applies it to the
+ * LSM6DSOX, then waits for INT1 rising edges (MLC0_SRC change), reads
+ * the MLC output, and toggles the decision GPIO on every binary state
+ * transition.
+ *
+ * Decision rule (binary classification):
+ *   The header defines MLC_OUT_NONTAP as the "negative" class code.
+ *   Any other value read from MLC0_SRC is treated as a "positive" class.
+ *   The decision GPIO is toggled with a brief pulse on every transition
+ *   between these two binary states (NONTAP <-> any non-NONTAP). Sub-class
+ *   transitions within the non-NONTAP set (e.g. 0x01 -> 0x04 in the
+ *   activity-recognition config: walking -> jogging) do NOT toggle the
+ *   decision GPIO, because the binary state is unchanged.
+ *
+ *   For the legacy custom-trained tap configs, MLC_OUT_TAP is the only
+ *   non-NONTAP class, so this rule reduces to the original "tap detected"
+ *   behavior.
  *
  * Compile-time selection of MLC config:
  *   gcc -O2 -Wall -DMLC_CONFIG_HEADER=\"mlc_accuracy.h\" -o latency_test_mlc_acc latency_test_mlc.c -lgpiod
  *   gcc -O2 -Wall -DMLC_CONFIG_HEADER=\"mlc_latency.h\"  -o latency_test_mlc_lat latency_test_mlc.c -lgpiod
+ *   gcc -O2 -Wall -I../../mlc_config -DMLC_CONFIG_HEADER=\"mlc_activity.h\" \
+ *       -o latency_test_mlc_activity latency_test_mlc.c -lgpiod
+ *
+ * Runtime flags:
+ *   --pulsed    EMB_FUNC_LIR=0 (default). Use for configs with INT1 pulse
+ *               widths >= ~10 ms.
+ *   --latched   EMB_FUNC_LIR=1. INT1 stays high until MLC0_SRC is read.
+ *               See configure_mlc() for the deadlock caveat. Use only when
+ *               pulsed mode cannot reliably catch the pulse.
  *
  * Saleae:
  *   D0 = Pin 15 (sensor INT1)    -- rising edge marks MLC fired
- *   D1 = Pin 11 (decision GPIO)  -- rising edge marks host detected tap
- *   A0 = piezo                   -- ground truth
+ *   D1 = Pin 11 (decision GPIO)  -- rising edge marks host binary-state decision
+ *   A0 = ground truth (piezo for tap configs; experimenter label for activity)
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -104,8 +128,24 @@ static int read_mlc_src(int fd, uint8_t *val) {
     return 0;
 }
 
-/* Configure: SW reset, verify chip, then apply the .ucf-equivalent writes. */
-static int configure_mlc(int i2c_fd) {
+/* Configure: SW reset, verify chip, then apply the .ucf-equivalent writes.
+ *
+ * use_latched: if true, set EMB_FUNC_LIR=1 (latched mode). If false (default),
+ * set EMB_FUNC_LIR=0 (pulsed mode).
+ *
+ * Latched mode caveat: in latched mode, INT1 is held high until MLC0_SRC is
+ * read, which clears the latch. If the chip fires INT1 between the LIR-enable
+ * write and the gpiod edge subscription, the rising edge is "in the past"
+ * from gpiod's perspective and gpiod_line_event_wait() will block forever
+ * waiting for the next rising edge -- which can't occur because INT1 is
+ * already high. This was observed empirically with the activity-recognition
+ * config: latched mode produced zero INT1 events; pulsed mode worked.
+ *
+ * Use pulsed mode unless the .ucf produces such short INT1 pulses that the
+ * bank-switch+read cycle cannot reliably catch them (the original concern
+ * for the legacy tap configs at ~9.6 ms pulse width).
+ */
+static int configure_mlc(int i2c_fd, bool use_latched) {
     uint8_t scratch;
     uint8_t reg;
 
@@ -153,20 +193,28 @@ static int configure_mlc(int i2c_fd) {
     }
     fprintf(stderr, "INT1_CTRL forced to 0x00 (DRDY routing disabled).\n");
 
-    /* Enable EMB_FUNC_LIR (latched interrupt mode for embedded functions).
+    /* Set EMB_FUNC_LIR per use_latched parameter.
      * Per AN5273: "Latched mode can be enabled by setting the EMB_FUNC_LIR
      * bit of the PAGE_RW (17h) embedded functions register to 1."
      *
-     * In default (pulsed) mode the MLC INT1 pulse is ~9.6ms wide, but
-     * MLC0_SRC may revert to 0 before our bank-switch + read completes.
-     * Latched mode keeps INT1 asserted and MLC0_SRC stable until we read
-     * MLC0_SRC, which clears the latch.
+     * Pulsed (LIR=0): INT1 pulses for the configured pulse width then
+     *   de-asserts. MLC0_SRC reflects the most recent classification but
+     *   may be overwritten before the host reads it. For configs with
+     *   wide pulse widths (e.g. 38.5 ms in the activity config) the
+     *   bank-switch+read cycle reliably catches the INT before it
+     *   de-asserts, and pulsed is the correct choice.
+     *
+     * Latched (LIR=1): INT1 stays asserted until MLC0_SRC is read. Read
+     *   clears the latch. See caveat in the configure_mlc header comment;
+     *   latched mode can deadlock the host if INT1 latches before gpiod
+     *   begins listening for rising edges. Use only when pulse widths are
+     *   too short for pulsed mode to catch reliably.
      */
     if (i2c_write_reg_retry(i2c_fd, 0x01, 0x80, 2) < 0) {  /* bank -> embedded */
         fprintf(stderr, "bank switch to embedded failed\n");
         return -1;
     }
-    if (i2c_write_reg_retry(i2c_fd, 0x17, 0x80, 2) < 0) {  /* PAGE_RW EMB_FUNC_LIR=1 */
+    if (i2c_write_reg_retry(i2c_fd, 0x17, use_latched ? 0x80 : 0x00, 2) < 0) {
         fprintf(stderr, "EMB_FUNC_LIR set failed\n");
         return -1;
     }
@@ -174,7 +222,9 @@ static int configure_mlc(int i2c_fd) {
         fprintf(stderr, "bank switch back to user failed\n");
         return -1;
     }
-    fprintf(stderr, "EMB_FUNC_LIR enabled (latched MLC interrupts).\n");
+    fprintf(stderr, "EMB_FUNC_LIR = %d (%s mode).\n",
+            use_latched ? 1 : 0,
+            use_latched ? "latched" : "pulsed");
 
     /* Settling */
     struct timespec ts2 = { .tv_sec = 0, .tv_nsec = 100 * 1000 * 1000 };
@@ -191,12 +241,34 @@ static inline uint64_t now_ns(void) {
 static volatile sig_atomic_t stop_flag = 0;
 static void on_sigint(int sig) { (void)sig; stop_flag = 1; }
 
-int main(void) {
+int main(int argc, char **argv) {
     int rc = 1;
     int i2c_fd = -1;
     struct gpiod_chip *chip = NULL;
     struct gpiod_line *int_line = NULL;
     struct gpiod_line *dec_line = NULL;
+    bool use_latched = false;  /* default = pulsed mode */
+
+    for (int i = 1; i < argc; ++i) {
+        if (!strcmp(argv[i], "--latched")) {
+            use_latched = true;
+        } else if (!strcmp(argv[i], "--pulsed")) {
+            use_latched = false;
+        } else {
+            fprintf(stderr,
+                "usage: %s [--pulsed | --latched]\n"
+                "  --pulsed   : EMB_FUNC_LIR=0 (default). INT1 pulses for the\n"
+                "               configured pulse width. Use for configs with\n"
+                "               INT1 pulse widths >= ~10 ms.\n"
+                "  --latched  : EMB_FUNC_LIR=1. INT1 stays high until host\n"
+                "               reads MLC0_SRC. WARNING: can deadlock the host\n"
+                "               if INT1 latches before gpiod begins listening.\n"
+                "               Use only when pulse widths are too short for\n"
+                "               pulsed mode to catch reliably.\n",
+                argv[0]);
+            return 2;
+        }
+    }
 
     signal(SIGINT, on_sigint);
 
@@ -205,7 +277,7 @@ int main(void) {
         fprintf(stderr, "i2c open(%s) failed: %s\n", I2C_DEVICE, strerror(errno));
         goto cleanup;
     }
-    if (configure_mlc(i2c_fd) < 0) goto cleanup;
+    if (configure_mlc(i2c_fd, use_latched) < 0) goto cleanup;
 
     chip = gpiod_chip_open(GPIOCHIP_PATH);
     if (!chip) { fprintf(stderr, "gpiod_chip_open: %s\n", strerror(errno)); goto cleanup; }
@@ -224,12 +296,27 @@ int main(void) {
         goto cleanup;
     }
 
-    fprintf(stderr, "Listening for MLC INT1 events. Tap. Ctrl+C to stop.\n");
-    fprintf(stderr, "Saleae D0=Pin15(INT), D1=Pin11(decision), A0=piezo.\n");
-    printf("\n%-6s %-12s %-8s\n", "EVENT#", "host_dt(us)", "mlc_src");
+    fprintf(stderr, "Listening for MLC INT1 events. Ctrl+C to stop.\n");
+    fprintf(stderr, "Saleae D0=Pin15(INT), D1=Pin11(decision), A0=ground truth.\n");
+    fprintf(stderr, "Decision rule: binary state transition (0x00 vs non-zero).\n");
+    fprintf(stderr, "  GPIO toggles on every transition between MLC_OUT_NONTAP\n");
+    fprintf(stderr, "  and any non-NONTAP class. Sub-class transitions within\n");
+    fprintf(stderr, "  the non-NONTAP set (e.g. 0x01 -> 0x04) do NOT toggle.\n");
+    printf("\n%-6s %-6s %-12s %-8s %-12s\n",
+           "EVENT#", "TRIAL#", "host_dt(us)", "mlc_src", "transition");
 
     int event_count = 0;
-    int tap_count = 0;
+    int trial_count = 0;
+    /* Initial state assumption: probe startup typically with sensor at rest,
+     * so binary state == NONTAP. First INT1 from a chip already in NONTAP
+     * will be a no-toggle event; first INT1 from a chip transitioning into
+     * a non-NONTAP class will trigger trial #1.
+     *
+     * If the chip's first reported class is non-NONTAP at startup (e.g. a
+     * boot artifact), trial #1 will fire near t=0 and analysts can choose
+     * to exclude it per pre-reg §11. Document any such exclusion in the
+     * exclusions log; do not silently filter here. */
+    bool last_motion_state = false;
     while (!stop_flag) {
         struct timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
         int ev = gpiod_line_event_wait(int_line, &timeout);
@@ -250,28 +337,42 @@ int main(void) {
 
         ++event_count;
 
-        if (mlc_src == MLC_OUT_TAP) {
-            /* Toggle decision GPIO immediately - this is the wire-level
-             * "decision" edge that the Saleae captures on D1. */
+        bool current_motion_state = (mlc_src != MLC_OUT_NONTAP);
+
+        if (current_motion_state != last_motion_state) {
+            /* Binary state changed -- this is a trial. Toggle decision GPIO
+             * immediately; the rising edge on D1 is the wire-level decision
+             * timestamp captured by Saleae. */
             gpiod_line_set_value(dec_line, 1);
             gpiod_line_set_value(dec_line, 0);
             uint64_t t_decided_ns = now_ns();
-            ++tap_count;
+            ++trial_count;
 
             uint64_t host_dt_us = (t_decided_ns - t_int_seen_ns) / 1000;
-            printf("%-6d %-12llu %-8s\n",
-                   tap_count, (unsigned long long)host_dt_us, "TAP");
+            const char *transition = current_motion_state
+                                     ? "STILL->MOTION"
+                                     : "MOTION->STILL";
+            printf("%-6d %-6d %-12llu 0x%02X    %-12s\n",
+                   event_count, trial_count,
+                   (unsigned long long)host_dt_us, mlc_src, transition);
             fflush(stdout);
+            last_motion_state = current_motion_state;
         } else {
-            /* Non-tap MLC interrupt - chip says state changed but to
-             * non-tap class. Don't toggle decision GPIO. */
-            printf("(%d) mlc_src=0x%02X (nontap state change, ignored)\n",
-                   event_count, mlc_src);
+            /* INT1 fired but binary state did not change. Two cases:
+             *   1. Sub-class transition within non-NONTAP set
+             *      (e.g. 0x0C -> 0x04: driving -> jogging). MLC reports
+             *      a state change but binary state is unchanged.
+             *   2. Re-affirmation of NONTAP. Binary state unchanged.
+             * Neither toggles the decision GPIO. Logged for diagnostics. */
+            printf("%-6d %-6s %-12s 0x%02X    %-12s\n",
+                   event_count, "-", "-", mlc_src,
+                   current_motion_state ? "(still motion)" : "(still still)");
             fflush(stdout);
         }
     }
 
-    fprintf(stderr, "\nStopped after %d events, %d taps.\n", event_count, tap_count);
+    fprintf(stderr, "\nStopped after %d INT1 events, %d binary-state-change trials.\n",
+            event_count, trial_count);
     rc = 0;
 
 cleanup:
