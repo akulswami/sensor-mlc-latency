@@ -69,6 +69,11 @@
 #define REG_TAP_CFG2    0x58
 #define REG_TAP_THS_6D  0x59
 #define REG_INT_DUR2    0x5A
+
+/* Configurable single-tap quiet/shock durations. Default 0x06:
+ * SHOCK=2 (38.4ms shock window), QUIET=1 (9.6ms quiet window) at ODR=416Hz.
+ * Settable via --int-dur2 CLI flag. */
+static uint8_t g_int_dur2 = 0x06;
 #define REG_WAKE_UP_THS 0x5B
 #define REG_MD1_CFG     0x5E
 #define REG_TAP_SRC     0x1C
@@ -155,7 +160,7 @@ static int configure_tap_detector(int i2c_fd) {
         { REG_TAP_CFG1,    0x88 },  /* X tap threshold ~500 mg, enable */
         { REG_TAP_CFG2,    0x88 },  /* Y tap threshold ~500 mg, enable */
         { REG_TAP_THS_6D,  0x88 },  /* Z tap threshold ~500 mg */
-        { REG_INT_DUR2,    0x06 },  /* tap quiet/shock durations */
+        { REG_INT_DUR2,    g_int_dur2 },  /* tap quiet/shock durations (CLI configurable) */
         { REG_WAKE_UP_THS, 0x00 },  /* single-tap mode */
         { REG_MD1_CFG,     0x40 },  /* route single-tap event to I1 */
     };
@@ -183,12 +188,34 @@ static inline uint64_t now_ns(void) {
 static volatile sig_atomic_t stop_flag = 0;
 static void on_sigint(int sig) { (void)sig; stop_flag = 1; }
 
-int main(void) {
+int main(int argc, char **argv) {
     int rc = 1;
     int i2c_fd = -1;
     struct gpiod_chip *chip = NULL;
     struct gpiod_line *int_line = NULL;
     struct gpiod_line *dec_line = NULL;
+
+    /* CLI parsing: --int-dur2 0xHH */
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--int-dur2") == 0 && i + 1 < argc) {
+            unsigned int v;
+            if (sscanf(argv[i+1], "%i", &v) == 1 && v <= 0xFF) {
+                g_int_dur2 = (uint8_t)v;
+                ++i;
+            } else {
+                fprintf(stderr, "Invalid --int-dur2 value: %s\n", argv[i+1]);
+                return 1;
+            }
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            printf("Usage: %s [--int-dur2 0xHH]\n", argv[0]);
+            printf("  --int-dur2 0xHH   INT_DUR2 register value (default 0x06)\n");
+            printf("                    bits[1:0]=SHOCK, bits[3:2]=QUIET\n");
+            printf("                    SHOCK=N gives N*8/ODR_XL shock window\n");
+            printf("                    QUIET=N gives N*4/ODR_XL quiet window\n");
+            printf("                    At ODR=416Hz: SHOCK_LSB=19.2ms, QUIET_LSB=9.6ms\n");
+            return 0;
+        }
+    }
 
     signal(SIGINT, on_sigint);
 
@@ -199,7 +226,7 @@ int main(void) {
         goto cleanup;
     }
     if (configure_tap_detector(i2c_fd) < 0) goto cleanup;
-    printf("Tap detector configured (500mg threshold, single-tap, INT to I1).\n");
+    printf("Tap detector configured (500mg threshold, single-tap, INT to I1, INT_DUR2=0x%02X).\n", g_int_dur2);
 
     /* GPIO: chip + lines */
     chip = gpiod_chip_open(GPIOCHIP_PATH);
