@@ -1,2 +1,5 @@
 latency_test
 *.o
+latency_test_mlc_acc
+latency_test_mlc_lat
+*.o
