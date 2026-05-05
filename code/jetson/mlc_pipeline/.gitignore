@@ -1,5 +1,15 @@
+# Compiled binaries
 latency_test
-*.o
-latency_test_mlc_acc
 latency_test_mlc_lat
+latency_test_mlc_acc
+mlc_poll_probe_lat
+mlc_poll_probe_acc
+mlc_poll_probe2_lat
+mlc_poll_probe2_acc
+
+# Object files
 *.o
+
+# Patch artifacts
+*.orig
+*.rej
