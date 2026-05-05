@@ -63,6 +63,7 @@
 
 /* --- Sensor registers (subset; see B1 script for full context) --- */
 #define REG_CTRL1_XL    0x10
+#define REG_CTRL3_C     0x12
 #define REG_TAP_CFG0    0x56
 #define REG_TAP_CFG1    0x57
 #define REG_TAP_CFG2    0x58
@@ -95,7 +96,59 @@ static int i2c_read_reg(int fd, uint8_t reg, uint8_t *val) {
 }
 
 /* --- Sensor configuration --- */
+static int i2c_write_reg_retry(int fd, uint8_t reg, uint8_t val, int retries) {
+    for (int attempt = 0; attempt <= retries; ++attempt) {
+        if (i2c_write_reg(fd, reg, val) == 0) return 0;
+        if (attempt < retries) {
+            fprintf(stderr, "i2c write reg 0x%02X failed, retrying: %s\n",
+                    reg, strerror(errno));
+            struct timespec ts = { .tv_sec = 0, .tv_nsec = 100 * 1000 * 1000 };
+            nanosleep(&ts, NULL);
+        }
+    }
+    return -1;
+}
+
 static int configure_tap_detector(int i2c_fd) {
+    uint8_t scratch;
+    uint8_t reg;
+
+    /* 1. Drain any latched interrupts. In latched DRDY mode the chip clears
+     * INT1 only when the high byte of an enabled axis (0x29, 0x2B, 0x2D) is
+     * read. In latched tap mode the chip clears INT1 when TAP_SRC (0x1C) is
+     * read. Read both so we recover from whatever state the chip was in.
+     * Failures here are non-fatal -- chip may be unresponsive until reset. */
+    reg = 0x1C;
+    if (write(i2c_fd, &reg, 1) == 1) (void)read(i2c_fd, &scratch, 1);
+    reg = 0x2D;
+    if (write(i2c_fd, &reg, 1) == 1) (void)read(i2c_fd, &scratch, 1);
+
+    /* 2. Software reset to wipe any prior config (e.g. from host_pipeline
+     * leaving DRDY routed to INT1). Retry up to 3 times because the very
+     * first I2C write after a chip lock-up sometimes NAKs. */
+    if (i2c_write_reg_retry(i2c_fd, REG_CTRL3_C, 0x01, 2) < 0) {
+        fprintf(stderr, "sw_reset failed after retries. "
+                "Power-cycle the sensor and rerun.\n");
+        return -1;
+    }
+
+    /* Wait for reset (datasheet: ~50us; give 50ms to be safe) */
+    struct timespec ts1 = { .tv_sec = 0, .tv_nsec = 50 * 1000 * 1000 };
+    nanosleep(&ts1, NULL);
+
+    /* 3. Verify chip is responsive after reset */
+    reg = 0x0F;  /* WHO_AM_I */
+    if (write(i2c_fd, &reg, 1) != 1 || read(i2c_fd, &scratch, 1) != 1) {
+        fprintf(stderr, "WHO_AM_I read after reset failed: %s\n",
+                strerror(errno));
+        return -1;
+    }
+    if (scratch != 0x6C) {
+        fprintf(stderr, "WHO_AM_I=0x%02X (expected 0x6C) after reset\n", scratch);
+        return -1;
+    }
+
+    /* 4. Now configure tap detection. */
     struct { uint8_t reg, val; } cfg[] = {
         { REG_CTRL1_XL,    0x60 },  /* ODR 416 Hz, +/-2g */
         { REG_TAP_CFG0,    0x0E },  /* enable tap on X,Y,Z; pulse mode (LIR=0) */
@@ -107,15 +160,15 @@ static int configure_tap_detector(int i2c_fd) {
         { REG_MD1_CFG,     0x40 },  /* route single-tap event to I1 */
     };
     for (size_t i = 0; i < sizeof(cfg)/sizeof(cfg[0]); ++i) {
-        if (i2c_write_reg(i2c_fd, cfg[i].reg, cfg[i].val) < 0) {
-            fprintf(stderr, "i2c write reg 0x%02X failed: %s\n",
-                    cfg[i].reg, strerror(errno));
+        if (i2c_write_reg_retry(i2c_fd, cfg[i].reg, cfg[i].val, 2) < 0) {
+            fprintf(stderr, "config write to reg 0x%02X failed.\n", cfg[i].reg);
             return -1;
         }
     }
+
     /* settling time after config */
-    struct timespec ts = { .tv_sec = 0, .tv_nsec = 50 * 1000 * 1000 };
-    nanosleep(&ts, NULL);
+    struct timespec ts2 = { .tv_sec = 0, .tv_nsec = 50 * 1000 * 1000 };
+    nanosleep(&ts2, NULL);
     return 0;
 }
 
