@@ -613,6 +613,4 @@ same trained tree rather than a reverse-engineered reproduction.
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency
 and the commit will be tagged as `prereg-amendment-2026-05-06`. The
 repository release will be mirrored to Zenodo with a new DOI distinct
-from the v2 DOI (10.5281/zenodo.20042123). The new DOI will be added
-to this amendment in a follow-up commit immediately after Zenodo minting,
-and the commit message for that follow-up will reference this amendment.
+from the v2 DOI (10.5281/zenodo.20042123). The new DOI is 10.5281/zenodo.20060848 (https://doi.org/10.5281/zenodo.20060848). The DOI of the Zenodo release containing this amendment is the authoritative external timestamp.
