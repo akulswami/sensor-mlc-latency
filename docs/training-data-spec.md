@@ -137,8 +137,8 @@ transition margin.
 - Channels:
   - D0 = LSM6DSOX INT1 (sensor data-ready / MLC interrupt, kept for
     cross-reference with measurement runs)
-  - D1 = (reserved for measurement runs; not required during training data
-    collection)
+  - D1 = decision GPIO from latency-test binary (Jetson Pin 11). Present
+  during all bench runs but not required for training data collection.
   - D2 = PCA9685 OUT0 (PWM signal driving the servo) — labeling ground
     truth
   - A0 = (reserved)
