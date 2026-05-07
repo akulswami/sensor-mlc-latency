@@ -109,7 +109,7 @@ servo burst correlate, leaking train-into-test.
 ## Labeling
 
 Ground truth comes from the PWM signal driving the servo, captured on
-Saleae channel A1 (or whichever digital channel is allocated; documented
+Saleae channel D2 (or whichever digital channel is allocated; documented
 per-session in the lab notebook).
 
 - "Motion" PWM duty: any servo command other than the neutral
