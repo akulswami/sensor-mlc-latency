@@ -174,22 +174,6 @@ because either may produce a cleaner threshold during MEMS Studio
 training. AFS (Automatic Feature Selection) is not used; the feature
 set is fixed manually for reproducibility.
 
-## Feature set
-
-Two MLC features, computed on the acceleration norm only:
-
-- VARIANCE_NORM
-- PEAK_TO_PEAK_NORM
-
-Rationale: the experimental stimulus is horizontal oscillation, so gravity
-remains on a single axis throughout both classes and norm-axis features
-carry the discriminative information without orientation coupling.
-Variance and peak-to-peak are both expected to be high during motor-on
-and near-zero during motor-off; both are retained for redundancy and
-because either may produce a cleaner threshold during MEMS Studio
-training. AFS (Automatic Feature Selection) is not used; the feature
-set is fixed manually for reproducibility.
-
 ## Reproducibility checklist
 
 A successful training data collection must produce, for each session:
