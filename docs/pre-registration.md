@@ -459,3 +459,160 @@ release is mirrored to Zenodo with DOI: 10.5281/zenodo.20042123 (https://doi.org
 DOI of the Zenodo release containing this amendment is the authoritative
 external timestamp.
 
+
+## Amendment 2026-05-06: Replace ST reference activity-recognition .ucf with custom-trained 2-class motion-vs-still MLC
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+The following datasets and artifacts were produced under the v2 amendment
+(activity-recognition .ucf, 2026-05-05) and are NOT used as training,
+validation, or test data for the amended task:
+
+- Smoke-test latency observations from `latency_test_mlc_activity` runs
+  on 2026-05-05 and 2026-05-06 (idle: ~464–479 µs across n=4 transitions;
+  under stress-ng matrixprod CPU saturation: ~489–516 µs across n=18
+  transitions). These are bring-up validation of the measurement pipeline,
+  documented in chat transcripts and lab notebook entries; they are not
+  pre-registered measurement runs.
+- The integrated `code/mlc_config/lsm6dsox_activity_recognition_for_mobile.{ucf,h}`
+  ST reference files and the derived `mlc_activity.h`. Retained in the
+  repository at git tag `activity-recognition-final` for reproducibility
+  of the v2 protocol; not used under the v3 protocol.
+
+No pre-registered measurement runs (n=500 per condition) have been executed
+under either the original, v2-amended, or v3-amended protocol as of this
+amendment.
+
+### Change
+
+The v2 amendment (2026-05-05) committed the on-sensor MLC pipeline to use
+ST's publicly-available activity-recognition reference configuration
+(`lsm6dsox_activity_recognition_for_mobile.ucf`), with the host pipeline
+implementing a parity-equivalent reproduction of the same decision tree.
+
+This v3 amendment replaces that commitment. The on-sensor MLC will be
+configured with a **custom-trained 2-class motion-vs-still decision tree**,
+trained per `docs/training-data-spec.md`. The host pipeline will be a
+direct software port of the same trained tree (same features, same
+thresholds, same window length), trained once and deployed to both
+locations — making bit-identical parity automatic by construction rather
+than something to be earned through reverse-engineering ST's reference.
+
+### Rationale
+
+Empirical work on 2026-05-05 and 2026-05-06 evaluated the ST activity-
+recognition .ucf against the planned servo-driven stimulus
+(0°↔150° horizontal oscillation via SG90, see `docs/training-data-spec.md`).
+The polling probe (`mlc_poll_probe2_activity`) captured classifier behavior
+across multiple stimulus regimes:
+
+1. **Stationary baseline (n=11,951 polls, 24 s):** 100% class 0x00.
+   Noise floor is clean.
+
+2. **Hand-shake at servo-equivalent profile (n=11,945 polls, 24 s):**
+   First non-zero class transition observed at t=25.3 s, transitioning to
+   class 0x0C ("Driving"). Hand-shake matched the intended servo motion
+   profile (~2 Hz oscillation, ~2 cm amplitude); the classifier mapped it
+   to Driving rather than Walking, indicating the servo stimulus is out
+   of distribution relative to the human-gait training corpus on which
+   ST's tree was trained.
+
+3. **Sustained high-amplitude rotation (n=11,909 polls, 24 s):** Classifier
+   transitions stabilize on a deterministic ~2.83-second cadence,
+   consistent with one MLC feature window (75 samples at 26 Hz =
+   2.885 s). State transitions occur at window boundaries with ±2 ms
+   variance across n=16 transitions, indicating the latency between true
+   stimulus change and classifier output is dominated by window-boundary
+   quantization (0–2.83 s) rather than by inference delay.
+
+4. **Onset latency from cold start: 11.2 s** (≈4 windows of sustained
+   motion before first non-zero class output), making the originally
+   pre-registered burst protocol (1 s rotate / 5 s still / 1 s rotate
+   / 5 s still) unusable: bursts shorter than one feature window cannot
+   produce a state transition. The minimum viable burst length under the
+   ST .ucf is ~3 s motion / ~6 s still, yielding ~9 transitions per
+   minute and requiring approximately 7.5 hours of bench time to reach
+   n=500 transitions per condition × 4 conditions.
+
+The above are not failure modes of the ST .ucf — it is correctly
+classifying its training distribution. They are evidence that ST's
+human-gait training corpus is mismatched with the servo-driven stimulus
+this protocol uses, and that the resulting feature-window quantization
+constrains the experimental design more than is necessary.
+
+A custom-trained tree, trained on data collected from the actual
+servo rig per `docs/training-data-spec.md`, addresses both:
+
+- The training distribution matches the deployment distribution by
+  construction. Accuracy on motor-on vs motor-off is expected to be
+  near-trivially high (variance and peak-to-peak features are large
+  during oscillation, near-zero during still).
+- Window length becomes a tunable parameter selected on validation
+  accuracy. Smaller windows enable shorter bursts and faster experimental
+  campaigns.
+
+### What is NOT changed
+
+- §1 Research question. Unchanged.
+- §2 Hypotheses H1, H2, H3, H4. Unchanged. The hypotheses reference
+  "MLC pipeline" and "host pipeline" without reference to which specific
+  classifier those pipelines run.
+- §3 Design. Two-factor (pipeline × stress) fully-crossed, n=500 per
+  condition × 4 conditions = 2,000 trials. Unchanged.
+- §4 Classification task remains binary motion-vs-still (per v2). The
+  task definition is unchanged; only the implementation of the classifier
+  changes.
+- §6 Primary and secondary outcomes. Wire-level INT-to-decision-GPIO
+  latency, measured by Saleae. Unchanged.
+- §8 Stress condition. Unchanged.
+- §9 Accuracy parity gate (≥90% both pipelines, ≤2pp gap). Unchanged.
+- §11 Exclusion criteria. Unchanged.
+- §12 Statistical analysis plan. Unchanged.
+- §13 Deviations and reporting. Unchanged.
+
+### What changes
+
+- §5.1 (On-sensor MLC pipeline): The MLC `.ucf` is now a custom-trained
+  2-class tree per `docs/training-data-spec.md` rather than ST's
+  activity-recognition reference. Training methodology, feature set,
+  window length selection, sample count, sessions, and train/test split
+  are specified in `docs/training-data-spec.md`.
+- §5.2 (On-host pipeline): The host classifier is a direct software port
+  of the same trained tree, sharing features, thresholds, and window
+  length. Implementation in `code/jetson/host_inference/`. Parity is
+  bit-identical by construction, not by reproduction of an external
+  reference.
+- §10 Items deferred to Phase B: the specific MLC `.ucf` is no longer
+  ST's reference but a custom-trained file produced via MEMS Studio per
+  the training-data spec.
+
+### Stop condition
+
+The §9 accuracy parity gate remains the hard requirement. If the
+custom-trained MLC and the host port do not both hit ≥90% on the
+held-out test session with ≤2pp gap, the latency experiment is not run.
+The custom-trained approach should make this gate easier to satisfy
+than the v2 approach, not harder, because the host pipeline is the
+same trained tree rather than a reverse-engineered reproduction.
+
+### Repository updates
+
+- `docs/training-data-spec.md` (committed at git SHA 57b16bd): authoritative
+  specification of training data collection, feature set, window length
+  selection, sessions, and train/test split.
+- Tag `activity-recognition-final` (commit `b900463`) preserves the v2
+  protocol artifacts for reproducibility.
+- New `.ucf` file and host port to be committed under `code/mlc_config/`
+  and `code/jetson/host_inference/` respectively, after training data
+  collection and MEMS Studio training are complete. Those commits are
+  the operational gating event for execution of the pre-registered
+  measurement runs.
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency
+and the commit will be tagged as `prereg-amendment-2026-05-06`. The
+repository release will be mirrored to Zenodo with a new DOI distinct
+from the v2 DOI (10.5281/zenodo.20042123). The new DOI will be added
+to this amendment in a follow-up commit immediately after Zenodo minting,
+and the commit message for that follow-up will reference this amendment.
