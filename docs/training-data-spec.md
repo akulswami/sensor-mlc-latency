@@ -23,9 +23,8 @@ functionally equivalent tree.
 
 Two classes:
 
-- **Class 0 (still):** sensor mounted on bench, no servo motion, baseline
-  bench environment, but including occasional manual bench-tap perturbations
-  to harden the still class against stress-induced vibration false positives.
+- **Class 0 (still):** sensor mounted on bench (and on servo horn,
+  consistent with motion-class mounting), no servo motion. Undisturbed.
 - **Class 1 (motion):** sensor mounted to servo horn, servo executing 0°↔150°
   oscillation, at one of two speeds (see below).
 
@@ -36,21 +35,17 @@ Two classes:
 - Hardware: Tower Pro SG90 driven by PCA9685 over Jetson I²C bus 1
   (pins 27/28).
 - Motion profile: 0° to 150° and back, sustained oscillation.
-- Two speeds:
-  - **Slow:** ~1 Hz oscillation (1 full 0→150→0 cycle per second).
-  - **Fast:** maximum reliable SG90 speed at no load (TBD empirically once
-    rig is built; expected ~2 Hz).
-- Each speed contributes ~50% of motion-class training windows.
+- Speed: single fixed PWM endpoints (e.g. 1.0 ms / 2.0 ms at 50 Hz
+  frame), producing oscillation at a measured frequency. The
+  oscillation frequency is reported in the paper as a measured value
+  with uncertainty (computed from accel data and PWM transitions on
+  Saleae), not as a setpoint.
 
 ### Stillness (still class)
 
 - Sensor mounted in identical physical configuration as motion trials
   (servo present and powered, but not commanded to rotate).
-- ~80% of still-class data: undisturbed bench.
-- ~20% of still-class data: manual bench taps with finger or pen, near but
-  not on the servo, to introduce mechanical noise that simulates the kind
-  of vibration that stress-ng workloads might cause through cooling fan
-  modulation and chassis resonance.
+- Undisturbed bench, no manual perturbations.
 
 ## Sensor configuration
 
@@ -162,6 +157,38 @@ transition margin.
   separate documents.
 - The host-side parity classifier implementation: depends on the trained
   tree; specified after training is complete.
+
+## Feature set
+
+Two MLC features, computed on the acceleration norm only:
+
+- VARIANCE_NORM
+- PEAK_TO_PEAK_NORM
+
+Rationale: the experimental stimulus is horizontal oscillation, so gravity
+remains on a single axis throughout both classes and norm-axis features
+carry the discriminative information without orientation coupling.
+Variance and peak-to-peak are both expected to be high during motor-on
+and near-zero during motor-off; both are retained for redundancy and
+because either may produce a cleaner threshold during MEMS Studio
+training. AFS (Automatic Feature Selection) is not used; the feature
+set is fixed manually for reproducibility.
+
+## Feature set
+
+Two MLC features, computed on the acceleration norm only:
+
+- VARIANCE_NORM
+- PEAK_TO_PEAK_NORM
+
+Rationale: the experimental stimulus is horizontal oscillation, so gravity
+remains on a single axis throughout both classes and norm-axis features
+carry the discriminative information without orientation coupling.
+Variance and peak-to-peak are both expected to be high during motor-on
+and near-zero during motor-off; both are retained for redundancy and
+because either may produce a cleaner threshold during MEMS Studio
+training. AFS (Automatic Feature Selection) is not used; the feature
+set is fixed manually for reproducibility.
 
 ## Reproducibility checklist
 
