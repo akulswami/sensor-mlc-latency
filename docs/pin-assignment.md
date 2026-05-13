@@ -23,6 +23,37 @@ Sensor I2C address: 0x6A (default; not jumpered).
 
 SDO and CS pins are unused in I2C mode and are left disconnected.
 
+
+## PCA9685 wiring (servo control)
+
+| PCA9685 pin | Jetson pin | Jetson function | Notes |
+|---|---|---|---|
+| VCC | Pin 1 | 3.3V | logic supply for PCA9685 |
+| GND | Pin 6 | GND | common ground |
+| SCL | Pin 28 | i2c1 SCL | I2C clock, bus 1 |
+| SDA | Pin 27 | i2c1 SDA | I2C data, bus 1 |
+| OE | (floating) | — | leave disconnected; internal pull-down enables outputs |
+| V+ | external 5V supply | — | servo power rail; **do NOT** source from Jetson |
+
+Bus number: /dev/i2c-1 (verified via i2cdetect 2026-05-12). Pins 27/28
+expose i2c1 in this device tree configuration; this is independent
+silicon from i2c-7 used by the sensor, so PCA9685 traffic does not
+contend with sensor reads.
+
+PCA9685 I2C address: **0x60**. The board ships at default 0x40, which
+collides with the on-carrier INA3221 power monitor. An address-select
+pad was bridged on 2026-05-12 to move the chip off 0x40; bit 5 was
+set (the pad labeled A5 on the PCB silkscreen, intended target was A0
+but the wrong pad was bridged — see lab notebook 2026-05-12). 0x60 is
+not colliding with anything and is functionally equivalent to the
+originally planned 0x41 for this experiment. The all-call address 0x70
+is also enabled by default (PCA9685 power-up behavior, separate from
+the individual address).
+
+INA3221 sanity check: tegrastats should report sensible non-zero
+VDD_IN values when PCA9685 is connected. Zero values would indicate
+address contention.
+
 ## Measurement-instrumented GPIO
 
 | Function | Jetson pin | Direction | Notes |
