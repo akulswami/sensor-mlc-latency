@@ -1,0 +1,25 @@
+{
+  "session_date": "2026-05-20",
+  "btest": false,
+  "duration_sec_per_class": 1200,
+  "odr_hz": 208,
+  "pwm_center_ticks": 307,
+  "pwm_min_ticks": 102,
+  "pwm_max_ticks": 511,
+  "started_at": "2026-05-20T21:14:01.594209",
+  "classes": [
+    {
+      "class": "still",
+      "duration_sec": 1200,
+      "csv_lines": 254590,
+      "started_at": "2026-05-20T21:34:12.957403"
+    },
+    {
+      "class": "motion",
+      "duration_sec": 1200,
+      "csv_lines": 254561,
+      "started_at": "2026-05-20T21:54:26.220767"
+    }
+  ],
+  "finished_at": "2026-05-20T21:54:26.220782"
+}
