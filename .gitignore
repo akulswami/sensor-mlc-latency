@@ -50,4 +50,3 @@ data/training/*-btest/
 
 # Sweep logs are valuable data (ground-truth label timestamps)
 !data/training/**/*.log
-!data/training/**/*.log
