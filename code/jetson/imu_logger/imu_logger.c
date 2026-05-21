@@ -1,15 +1,20 @@
 /*
  * imu_logger.c
  *
- * Streams LSM6DSOX accelerometer at 416 Hz via DRDY interrupts on I1,
- * writes each sample to a CSV file with monotonic-clock timestamp.
+ * Streams LSM6DSOX accelerometer at configurable ODR via DRDY interrupts
+ * on I1, writes each sample to a CSV file with monotonic-clock timestamp.
  *
  * Output format (matches MEMS Studio Unico/Unicleo CSV expectation):
  *   TIME [s],   A_X [g],   A_Y [g],   A_Z [g]
  *   0.000000,   0.015,    -0.018,    1.020
  *   ...
  *
- * Usage: sudo ./imu_logger <output_csv>
+ * Usage: sudo ./imu_logger [--odr HZ] [--fflush] <output_csv>
+ *
+ *   --odr HZ     Sample rate. Allowed: 26, 52, 104, 208, 416, 833.
+ *                Default: 208 (matches docs/training-data-spec.md).
+ *   --fflush     fflush() after each sample. Defends against data loss
+ *                on kill -9 at the cost of throughput. Default: off.
  *
  * Build: gcc -O2 -Wall -o imu_logger imu_logger.c -lgpiod -lm
  */
@@ -44,6 +49,40 @@
 #define REG_OUTX_L_A    0x28
 #define SENS_G_PER_LSB  (0.061e-3f)
 
+/* ODR table: maps Hz to CTRL1_XL register value (ODR bits in 7:4,
+ * range bits in 3:2). All entries use FS=00 (+/-2g). */
+typedef struct {
+    int hz;
+    uint8_t ctrl1_xl;
+} odr_entry_t;
+
+static const odr_entry_t ODR_TABLE[] = {
+    {  26, 0x20 },
+    {  52, 0x30 },
+    { 104, 0x40 },
+    { 208, 0x50 },
+    { 416, 0x60 },
+    { 833, 0x70 },
+};
+static const size_t ODR_TABLE_LEN = sizeof(ODR_TABLE) / sizeof(ODR_TABLE[0]);
+
+#define DEFAULT_ODR_HZ 208
+
+static uint8_t odr_hz_to_ctrl1_xl(int hz) {
+    for (size_t i = 0; i < ODR_TABLE_LEN; ++i) {
+        if (ODR_TABLE[i].hz == hz) return ODR_TABLE[i].ctrl1_xl;
+    }
+    return 0;  /* invalid */
+}
+
+static void print_supported_odrs(FILE *fp) {
+    fprintf(fp, "Supported ODRs (Hz):");
+    for (size_t i = 0; i < ODR_TABLE_LEN; ++i) {
+        fprintf(fp, " %d", ODR_TABLE[i].hz);
+    }
+    fprintf(fp, "\n");
+}
+
 /* Helpers */
 static int i2c_open_and_select(const char *dev, uint8_t addr) {
     int fd = open(dev, O_RDWR);
@@ -74,7 +113,7 @@ static int i2c_read_block(int fd, uint8_t reg, uint8_t *buf, size_t n) {
     return (ioctl(fd, I2C_RDWR, &xfer) < 0) ? -1 : 0;
 }
 
-static int configure_streaming(int i2c_fd) {
+static int configure_streaming(int i2c_fd, uint8_t ctrl1_xl_value) {
     uint8_t scratch;
     uint8_t reg;
 
@@ -99,10 +138,11 @@ static int configure_streaming(int i2c_fd) {
         return -1;
     }
 
-    /* Configure: BDU=1 IF_INC=1, ODR 416Hz +/-2g, pulsed DRDY, INT1=DRDY */
+    /* Configure: BDU=1 IF_INC=1, ODR/range per ctrl1_xl_value, pulsed DRDY,
+     * INT1=DRDY */
     struct { uint8_t reg, val; } cfg[] = {
         { REG_CTRL3_C,   0x44 },
-        { REG_CTRL1_XL,  0x60 },
+        { REG_CTRL1_XL,  ctrl1_xl_value },
         { 0x0B,          0x80 },  /* COUNTER_BDR_REG1: dataready_pulsed=1 */
         { REG_INT1_CTRL, 0x01 },
     };
@@ -126,12 +166,49 @@ static inline double now_s(void) {
 static volatile sig_atomic_t stop_flag = 0;
 static void on_sigint(int sig) { (void)sig; stop_flag = 1; }
 
+static void usage(const char *prog) {
+    fprintf(stderr, "Usage: %s [--odr HZ] [--fflush] <output_csv>\n", prog);
+    fprintf(stderr, "  --odr HZ     Sample rate (default: %d).\n", DEFAULT_ODR_HZ);
+    fprintf(stderr, "  --fflush     fflush after each sample (default: off).\n");
+    print_supported_odrs(stderr);
+}
+
 int main(int argc, char **argv) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <output_csv>\n", argv[0]);
+    /* Defaults */
+    int odr_hz = DEFAULT_ODR_HZ;
+    int do_fflush = 0;
+    const char *out_path = NULL;
+
+    /* Argv parsing: flags then positional out_path */
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--odr") == 0 && i + 1 < argc) {
+            odr_hz = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--fflush") == 0) {
+            do_fflush = 1;
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "Unknown flag: %s\n", argv[i]);
+            usage(argv[0]);
+            return 1;
+        } else if (!out_path) {
+            out_path = argv[i];
+        } else {
+            fprintf(stderr, "Unexpected argument: %s\n", argv[i]);
+            usage(argv[0]);
+            return 1;
+        }
+    }
+
+    if (!out_path) {
+        usage(argv[0]);
         return 1;
     }
-    const char *out_path = argv[1];
+
+    uint8_t ctrl1_xl = odr_hz_to_ctrl1_xl(odr_hz);
+    if (ctrl1_xl == 0) {
+        fprintf(stderr, "Invalid --odr value: %d\n", odr_hz);
+        print_supported_odrs(stderr);
+        return 1;
+    }
 
     int rc = 1;
     int i2c_fd = -1;
@@ -150,8 +227,10 @@ int main(int argc, char **argv) {
 
     i2c_fd = i2c_open_and_select(I2C_DEVICE, LSM6DSOX_ADDR);
     if (i2c_fd < 0) { fprintf(stderr, "i2c open: %s\n", strerror(errno)); goto cleanup; }
-    if (configure_streaming(i2c_fd) < 0) goto cleanup;
-    fprintf(stderr, "Sensor configured at 416 Hz. Logging to %s. Ctrl+C to stop.\n", out_path);
+    if (configure_streaming(i2c_fd, ctrl1_xl) < 0) goto cleanup;
+    fprintf(stderr, "Sensor configured at %d Hz (CTRL1_XL=0x%02X). Logging to %s. Ctrl+C to stop.\n",
+            odr_hz, ctrl1_xl, out_path);
+    if (do_fflush) fprintf(stderr, "fflush after each sample: enabled.\n");
 
     chip = gpiod_chip_open(GPIOCHIP_PATH);
     if (!chip) { fprintf(stderr, "gpiod_chip_open: %s\n", strerror(errno)); goto cleanup; }
@@ -163,6 +242,7 @@ int main(int argc, char **argv) {
     }
 
     double t0 = now_s();
+    double t_next_progress = 2.0;  /* first progress print after 2 sec */
     uint64_t sample_count = 0;
 
     while (!stop_flag) {
@@ -190,12 +270,15 @@ int main(int argc, char **argv) {
 
         double t = now_s() - t0;
         fprintf(fp, "%.6f, %.4f, %.4f, %.4f\n", t, x, y, z);
+        if (do_fflush) fflush(fp);
         ++sample_count;
 
-        /* Print progress every ~2 sec */
-        if (sample_count % 832 == 0) {
-            fprintf(stderr, "  %llu samples (%.1f s)\n",
-                    (unsigned long long)sample_count, t);
+        /* Time-based progress print, regardless of ODR */
+        if (t >= t_next_progress) {
+            fprintf(stderr, "  %llu samples (%.1f s, %.1f Hz effective)\n",
+                    (unsigned long long)sample_count, t,
+                    (double)sample_count / t);
+            t_next_progress = t + 2.0;
         }
     }
 
