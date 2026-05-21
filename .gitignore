@@ -45,3 +45,4 @@ code/jetson/mlc_pipeline/latency_test_mlc_*
 code/jetson/mlc_pipeline/mlc_poll_probe
 code/jetson/mlc_pipeline/mlc_poll_probe2_*
 code/jetson/mlc_pipeline/host_pipeline
+code/jetson/servo/servo_sweep
