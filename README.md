@@ -4,7 +4,7 @@ Wire-level latency comparison of on-sensor Machine Learning Core (MLC) inference
 
 **Target venue:** IEEE Sensors Letters (4-page format)
 
-**Status:** Phase A — hardware setup and baseline characterization
+**Status:** Phase B — training data collection (session 1 complete)
 
 ## Overview
 

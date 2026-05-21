@@ -62,12 +62,22 @@ address contention.
 
 ## Saleae probe assignments
 
-| Saleae channel | Probed signal | Jetson pin |
+| Saleae channel | Probed signal | Source |
 |---|---|---|
-| D0 | LSM6DSOX INT1 | Pin 15 |
-| D1 | Decision-edge GPIO | Pin 11 |
-| D2 | spi1_sck (optional, for protocol decode) | Pin 23 |
-| D3 | spi1_cs0 (optional) | Pin 24 |
+| D0 | LSM6DSOX INT1 | Jetson Pin 15 |
+| D1 | Decision-edge GPIO | Jetson Pin 11 |
+| D2 | PCA9685 channel 0 PWM (servo control / training-label ground truth) | PCA9685 OUT0 PWM pin |
+| D3 | (unused) | — |
+| A3 | (used during 2026-05-12 V+ rail diagnostics; not part of normal probe layout) | — |
 | GND | GND | Pin 6 (or any GND) |
 
-D0 and D1 are required for latency measurement. D2/D3 are optional but useful for debugging.
+D0 and D1 are required for latency measurement. D2 is required for training
+data collection (provides ground-truth labels for motion vs. still windows
+per `docs/training-data-spec.md`); it is also retained during measurement
+runs as a redundant timing reference.
+
+The earlier SPI-decode allocation (D2=spi1_sck, D3=spi1_cs0) was used
+during the SPI bring-up phase (2026-04-29 → 2026-05-01); since the move
+to I²C and the addition of the servo rig, those probes are no longer
+wired. See lab notebook 2026-05-01 for the SPI→I²C transition.
+
