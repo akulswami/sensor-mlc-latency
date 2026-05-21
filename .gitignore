@@ -47,3 +47,7 @@ code/jetson/mlc_pipeline/mlc_poll_probe2_*
 code/jetson/mlc_pipeline/host_pipeline
 code/jetson/servo/servo_sweep
 data/training/*-btest/
+
+# Sweep logs are valuable data (ground-truth label timestamps)
+!data/training/**/*.log
+!data/training/**/*.log
