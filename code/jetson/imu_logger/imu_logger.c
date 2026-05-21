@@ -217,12 +217,18 @@ int main(int argc, char **argv) {
     FILE *fp = NULL;
 
     signal(SIGINT, on_sigint);
+    signal(SIGTERM, on_sigint);  /* `timeout` sends SIGTERM; treat same as Ctrl+C */
 
     fp = fopen(out_path, "w");
     if (!fp) {
         fprintf(stderr, "fopen(%s): %s\n", out_path, strerror(errno));
         return 1;
     }
+    /* Line-buffer the output so each \n flushes to the kernel. Defends
+     * against truncated last row if the process is killed abruptly
+     * (SIGTERM/SIGKILL from `timeout`, kill -9, power loss, etc).
+     * Cost: one syscall per sample. At 208 Hz this is negligible on Orin Nano. */
+    setvbuf(fp, NULL, _IOLBF, 0);
     fprintf(fp, "TIME [s], A_X [g], A_Y [g], A_Z [g]\n");
 
     i2c_fd = i2c_open_and_select(I2C_DEVICE, LSM6DSOX_ADDR);
