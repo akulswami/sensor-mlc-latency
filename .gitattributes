@@ -1,0 +1,5 @@
+*.sal filter=lfs diff=lfs merge=lfs -text
+data/training/**/accel.csv filter=lfs diff=lfs merge=lfs -text
+data/raw/**/*.csv filter=lfs diff=lfs merge=lfs -text
+*.logicdata filter=lfs diff=lfs merge=lfs -text
+*.logicdata2 filter=lfs diff=lfs merge=lfs -text
