@@ -40,6 +40,18 @@
  *   D0 = Pin 15 (sensor INT1)    -- rising edge marks MLC fired
  *   D1 = Pin 11 (decision GPIO)  -- rising edge marks host binary-state decision
  *   A0 = ground truth (piezo for tap configs; experimenter label for activity)
+ *
+ * Optional CSV logging:
+ *   --decisions-csv PATH writes one row per binary-state transition to PATH,
+ *   in the same schema as replay_parity.c (--emit-transitions-only mode):
+ *     window_idx,t_window_end_s,var_norm,p2p_norm,class
+ *   This lets compare_decisions.py diff the host pipeline against the MLC.
+ *   window_idx is the cumulative count of INT1 events (not window cadence,
+ *   which the MLC does not expose). t_window_end_s is seconds since
+ *   program start. var_norm and p2p_norm are written as 0.0 because the
+ *   MLC does not expose feature values to the host (AN5259 §1.3); they
+ *   are placeholders to keep the schema consistent with replay_parity.
+ *   compare_decisions.py compares only the class column.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -248,15 +260,19 @@ int main(int argc, char **argv) {
     struct gpiod_line *int_line = NULL;
     struct gpiod_line *dec_line = NULL;
     bool use_latched = false;  /* default = pulsed mode */
+    const char *decisions_csv_path = NULL;
+    FILE *decisions_fp = NULL;
 
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--latched")) {
             use_latched = true;
         } else if (!strcmp(argv[i], "--pulsed")) {
             use_latched = false;
+        } else if (!strcmp(argv[i], "--decisions-csv") && i + 1 < argc) {
+            decisions_csv_path = argv[++i];
         } else {
             fprintf(stderr,
-                "usage: %s [--pulsed | --latched]\n"
+                "usage: %s [--pulsed | --latched] [--decisions-csv PATH]\n"
                 "  --pulsed   : EMB_FUNC_LIR=0 (default). INT1 pulses for the\n"
                 "               configured pulse width. Use for configs with\n"
                 "               INT1 pulse widths >= ~10 ms.\n"
@@ -264,7 +280,11 @@ int main(int argc, char **argv) {
                 "               reads MLC0_SRC. WARNING: can deadlock the host\n"
                 "               if INT1 latches before gpiod begins listening.\n"
                 "               Use only when pulse widths are too short for\n"
-                "               pulsed mode to catch reliably.\n",
+                "               pulsed mode to catch reliably.\n"
+                "  --decisions-csv PATH\n"
+                "               Write per-transition CSV in the replay_parity\n"
+                "               schema for cross-pipeline comparison with\n"
+                "               compare_decisions.py. See file-level comment.\n",
                 argv[0]);
             return 2;
         }
@@ -296,6 +316,19 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
+    if (decisions_csv_path) {
+        decisions_fp = fopen(decisions_csv_path, "w");
+        if (!decisions_fp) {
+            fprintf(stderr, "open(%s) for write: %s\n",
+                    decisions_csv_path, strerror(errno));
+            goto cleanup;
+        }
+        fprintf(decisions_fp, "window_idx,t_window_end_s,var_norm,p2p_norm,class\n");
+        fflush(decisions_fp);
+        fprintf(stderr, "Decisions CSV: %s (rows emitted on binary-state transitions only)\n",
+                decisions_csv_path);
+    }
+
     fprintf(stderr, "Listening for MLC INT1 events. Ctrl+C to stop.\n");
     fprintf(stderr, "Saleae D0=Pin15(INT), D1=Pin11(decision), A0=ground truth.\n");
     fprintf(stderr, "Decision rule: binary state transition (0x00 vs non-zero).\n");
@@ -304,6 +337,12 @@ int main(int argc, char **argv) {
     fprintf(stderr, "  the non-NONTAP set (e.g. 0x01 -> 0x04) do NOT toggle.\n");
     printf("\n%-6s %-6s %-12s %-8s %-12s\n",
            "EVENT#", "TRIAL#", "host_dt(us)", "mlc_src", "transition");
+
+    /* Program start time: t_event_s in the decisions CSV is measured from
+     * here, so successive runs are comparable (and so the first row's
+     * t value reflects how long after startup the first transition fired
+     * rather than CLOCK_MONOTONIC's arbitrary epoch). */
+    uint64_t t_start_ns = now_ns();
 
     int event_count = 0;
     int trial_count = 0;
@@ -356,6 +395,21 @@ int main(int argc, char **argv) {
                    event_count, trial_count,
                    (unsigned long long)host_dt_us, mlc_src, transition);
             fflush(stdout);
+
+            /* CSV row for parity diff. Schema mirrors replay_parity.c
+             * --emit-transitions-only: window_idx, t_window_end_s,
+             * var_norm, p2p_norm, class. var/p2p are 0.0 because the MLC
+             * does not expose feature values to the host. window_idx is
+             * the trial number (counting from 1, matching the human log
+             * above). t_window_end_s is seconds since program start at
+             * the moment INT1 was observed. compare_decisions.py
+             * compares only the class column. */
+            if (decisions_fp) {
+                double t_event_s = (double)(t_int_seen_ns - t_start_ns) / 1e9;
+                fprintf(decisions_fp, "%d,%.6f,0.000000e+00,0.000000e+00,%u\n",
+                        trial_count, t_event_s, (unsigned)mlc_src);
+                fflush(decisions_fp);
+            }
             last_motion_state = current_motion_state;
         } else {
             /* INT1 fired but binary state did not change. Two cases:
@@ -376,6 +430,7 @@ int main(int argc, char **argv) {
     rc = 0;
 
 cleanup:
+    if (decisions_fp) fclose(decisions_fp);
     if (int_line) gpiod_line_release(int_line);
     if (dec_line) gpiod_line_release(dec_line);
     if (chip)     gpiod_chip_close(chip);

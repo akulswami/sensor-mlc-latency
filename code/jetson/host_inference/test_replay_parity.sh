@@ -135,3 +135,44 @@ echo "PASS: 12/12 windows classified correctly"
 echo
 echo "--- output for inspection ---"
 cat "$OUT"
+
+# --- 5. Test --emit-transitions-only on the same input ---
+# Expected: 2 rows.
+#   window_idx=4 (first still->motion), class=4
+#   window_idx=8 (first motion->still), class=0
+# The other 10 windows confirm their respective baselines and are suppressed.
+OUT2="$TMPDIR/out_transitions.csv"
+"$BIN" --tree "$TMPDIR/tree.json" --csv "$TMPDIR/accel.csv" \
+       --header --quiet --emit-transitions-only > "$OUT2"
+
+trans_rows=$(tail -n +2 "$OUT2" | wc -l)
+if [[ "$trans_rows" -ne 2 ]]; then
+    echo
+    echo "FAIL (transitions-only): expected 2 rows, got $trans_rows"
+    echo "--- output ---"
+    cat "$OUT2"
+    exit 1
+fi
+
+# Pull both rows and verify content.
+mapfile -t trans_lines < <(tail -n +2 "$OUT2")
+# Row 1 should be window_idx=4, class=4
+if ! echo "${trans_lines[0]}" | grep -q '^4,.*,4$'; then
+    echo
+    echo "FAIL (transitions-only): row 1 should be window 4 class 4"
+    echo "  got: ${trans_lines[0]}"
+    exit 1
+fi
+# Row 2 should be window_idx=8, class=0
+if ! echo "${trans_lines[1]}" | grep -q '^8,.*,0$'; then
+    echo
+    echo "FAIL (transitions-only): row 2 should be window 8 class 0"
+    echo "  got: ${trans_lines[1]}"
+    exit 1
+fi
+
+echo
+echo "PASS: 2/2 transitions detected correctly (--emit-transitions-only)"
+echo
+echo "--- transitions-only output for inspection ---"
+cat "$OUT2"
