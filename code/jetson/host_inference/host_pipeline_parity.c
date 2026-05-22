@@ -106,9 +106,18 @@ static int configure_streaming(int i2c_fd) {
     uint8_t scratch;
     uint8_t reg;
 
-    /* Drain latched interrupts. */
-    reg = 0x1C;  if (write(i2c_fd, &reg, 1) == 1) (void)read(i2c_fd, &scratch, 1);
-    reg = 0x2D;  if (write(i2c_fd, &reg, 1) == 1) (void)read(i2c_fd, &scratch, 1);
+    /* Drain latched interrupts. Reads are best-effort; failure is OK
+     * (chip may already be silent). We consume the return value to
+     * silence glibc's warn_unused_result; the value itself is
+     * intentionally discarded. */
+    reg = 0x1C;
+    if (write(i2c_fd, &reg, 1) == 1) {
+        ssize_t n = read(i2c_fd, &scratch, 1); (void)n;
+    }
+    reg = 0x2D;
+    if (write(i2c_fd, &reg, 1) == 1) {
+        ssize_t n = read(i2c_fd, &scratch, 1); (void)n;
+    }
 
     /* Software reset, with retry for first-write NAK quirk. */
     if (i2c_write_reg_retry(i2c_fd, REG_CTRL3_C, 0x01, 2) < 0) {
