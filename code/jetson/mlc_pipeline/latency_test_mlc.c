@@ -161,11 +161,19 @@ static int configure_mlc(int i2c_fd, bool use_latched) {
     uint8_t scratch;
     uint8_t reg;
 
-    /* Drain any latched interrupt state from prior runs */
+    /* Drain any latched interrupt state from prior runs. Reads are
+     * best-effort; failure is OK (chip may already be silent). Consume
+     * the return value to silence glibc's warn_unused_result; the value
+     * itself is intentionally discarded. Same pattern as d6bd301 in
+     * host_pipeline_parity.c. */
     reg = 0x1C;
-    if (write(i2c_fd, &reg, 1) == 1) (void)read(i2c_fd, &scratch, 1);
+    if (write(i2c_fd, &reg, 1) == 1) {
+        ssize_t n = read(i2c_fd, &scratch, 1); (void)n;
+    }
     reg = 0x2D;
-    if (write(i2c_fd, &reg, 1) == 1) (void)read(i2c_fd, &scratch, 1);
+    if (write(i2c_fd, &reg, 1) == 1) {
+        ssize_t n = read(i2c_fd, &scratch, 1); (void)n;
+    }
 
     /* SW_RESET */
     if (i2c_write_reg_retry(i2c_fd, REG_CTRL3_C, 0x01, 2) < 0) {
