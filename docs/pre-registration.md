@@ -614,3 +614,170 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 and the commit will be tagged as `prereg-amendment-2026-05-06`. The
 repository release will be mirrored to Zenodo with a new DOI distinct
 from the v2 DOI (10.5281/zenodo.20042123). The new DOI is 10.5281/zenodo.20060848 (https://doi.org/10.5281/zenodo.20060848). The DOI of the Zenodo release containing this amendment is the authoritative external timestamp.
+## Amendment 2026-05-22: MLC ODR clarification, training-time labeling protocol, and window-length evaluation status
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+Training data collected on 2026-05-20, 2026-05-21, and 2026-05-22 (see
+`data/training/`) was collected under the protocol described in
+`docs/training-data-spec.md` as committed at git SHA 57b16bd, with the
+implementation deviations documented below. All three sessions were
+collected before this amendment was written; this amendment documents
+the actual protocol used and the corrections required, rather than
+proposing a new protocol going forward.
+
+The data is retained and is the input to the custom-trained 2-class MLC
+under the v3 amendment. No pre-registered measurement runs (n=500 per
+condition) have been executed; this amendment precedes measurement.
+
+### Change 1: MLC ODR specified at 104 Hz (sensor ODR remains 208 Hz)
+
+The training-data-spec (§"Sensor configuration") states "ODR: **208 Hz**"
+without distinguishing the accelerometer output data rate from the MLC
+output data rate. AN5259 (LSM6DSOX Machine Learning Core application
+note, §1) caps the MLC ODR at 104 Hz; the sensor can sample faster than
+the MLC consumes.
+
+The training and host-side classifier in this work use:
+
+- **Accelerometer ODR: 208 Hz** (matches spec)
+- **MLC ODR: 104 Hz** (decimation ratio 2:1, applied inside the MLC)
+
+Window-length calculations in the spec table (e.g. "75 samples = 360 ms
+@ 208 Hz") implicitly assumed the MLC ODR equaled the sensor ODR. With
+the corrected MLC ODR of 104 Hz, MLC windows are twice as long:
+
+| Samples | Spec implied | Actual @ 104 Hz |
+|---|---|---|
+| 25  | 120 ms | 240 ms |
+| 75  | 360 ms | 721 ms |
+| 200 | 960 ms | 1923 ms |
+
+This does not affect §6 (latency outcome) or §9 (parity gate), which are
+defined on MLC inference events at the actual MLC ODR.
+
+### Change 2: Training-data labeling protocol — by-file, not by-PWM-transition
+
+The training-data-spec §"Labeling" specifies:
+
+> Ground truth comes from the PWM signal driving the servo, captured on
+> Saleae channel D2. ... Discard the first 200 ms after any PWM "rotate"
+> command. Discard the first 200 ms after any PWM "stop" command.
+
+This protocol assumed each training session would interleave rotate
+bursts and still segments within a single recording, with PWM transitions
+on Saleae D2 providing the ground truth at sample granularity.
+
+This protocol was **not implemented**. The actual training data
+(`data/training/2026-05-{20,21,22}/`) was collected by the orchestrator
+(`code/orchestrator/run_session.py`) which records each class as a
+separate continuous recording: 1200 sec of pure still data (PWM at center
+or disabled, no commanded motion) followed by 1200 sec of pure motion
+data (PWM oscillating continuously). The two recordings are saved as
+`still/accel.csv` and `motion/accel.csv` respectively.
+
+Labels are therefore assigned **by source file**, not by PWM state at
+sample time. Saleae captures (`still/saleae.sal`, `motion/saleae.sal`)
+were collected but do not drive labeling — they serve cross-reference
+for measurement runs (per the spec's mention of "kept for cross-reference
+with measurement runs").
+
+**This deviation is unplanned.** No prior lab-notebook entry or commit
+documents a decision to abandon the PWM-transition labeling protocol;
+it appears the orchestrator's per-class design and the spec's
+PWM-transition design were never reconciled, and the spec's protocol was
+silently superseded by the orchestrator's. The deviation is identified
+and documented here at first audit.
+
+**Methodological assessment:** The by-file protocol is, on examination,
+defensible — arguably strictly simpler than the PWM-transition protocol:
+
+- **No transition-margin labeling noise.** With no within-recording
+  transitions, the 200-ms post-transition margin and mid-transition
+  window discard rules of the spec are moot. All samples in a recording
+  are unambiguously labeled.
+- **Train/test split integrity is preserved.** The spec's intent that
+  random window-level splits leak train-into-test is honored: holdout
+  is by session (session 3 held out per `docs/train-test-split-decision.md`,
+  commit b5a5fd6), not by random window.
+- **Equivalent statistical power.** Spec's target of ≥500 windows per
+  class is exceeded. MEMS Studio reports 6,734 instances in the
+  combined session-1+2 training corpus; sample-count gate cleared.
+
+**Methodological cost:** The by-file protocol does not test the
+classifier's behavior at the boundary moment when motion stops or
+starts. Pre-registered measurement runs at §6 latency outcomes do
+involve such transitions and therefore exercise this regime; if the
+classifier behaves anomalously near transitions, measurement runs
+will surface it. The training set's lack of transition-region windows
+is acknowledged but not corrected — by-file is the protocol now.
+
+**Going forward:** future training data collections under this
+pre-registration use the by-file protocol. `docs/training-data-spec.md`
+will be updated by a separate commit to reflect this. Any return to the
+PWM-transition protocol will require a further amendment.
+
+### Change 3: Window-length evaluation in progress
+
+The spec §"Window length" requires three candidate trees (window =
+{25, 75, 200} samples) be trained and the best selected on validation
+accuracy with a tree-depth penalty.
+
+As of this amendment, only **w=75** has been trained
+(`data/mems-studio/2026-05-22-w75/`). The corresponding decision tree is
+depth 1, a single threshold on PEAK_TO_PEAK at 0.049316 on the IIR1-HP
+filtered acceleration norm. Training-set accuracy on sessions 1+2
+combined is 100%.
+
+This is not yet a generalization claim; the parity gate at §9 (host
+classifier and silicon classifier each ≥90% on the held-out test session,
+with ≤2pp gap) is the gating criterion, and is run on session 3
+(2026-05-22) which was not loaded into MEMS Studio for training.
+
+Window lengths 25 and 200 will be trained, evaluated against the parity
+gate, and a final selection made on validation accuracy. The trained
+w=75 classifier is preserved at `data/mems-studio/2026-05-22-w75/` for
+reproducibility regardless of which window length is finally selected.
+
+### What is NOT changed
+
+The hypothesis structure (§2), design (§3), task definition (§4),
+primary and secondary outcomes (§6), stress condition (§8), accuracy
+parity gate (§9), exclusion criteria (§11), statistical analysis (§12),
+and deviations-reporting protocol (§13) are unchanged.
+
+The classifier itself — features (VARIANCE_NORM, PEAK_TO_PEAK_NORM on
+acceleration norm), filter (IIR1 HP at fc=1 Hz), AFS-off, and feature
+selection by manual specification — is unchanged from the v3 amendment.
+
+### Implementation details NOT requiring pre-registration
+
+The following choices in `code/jetson/host_inference/parity_core.c` and
+`code/analysis/mlc_json_to_parity.py` are implementation defaults
+verified against silicon by the §9 parity gate, not pre-registered
+methodological choices:
+
+- IIR filter coefficient sign convention. MEMS Studio's UI uses
+  H(z) = (b1+b2·z⁻¹)/(1−a2·z⁻¹) (Convention B); parity_core.c uses
+  H(z) = (b1+b2·z⁻¹)/(1+a2·z⁻¹) (Convention A, matching AN5259's
+  notation). The extractor `mlc_json_to_parity.py` sign-flips a2
+  when emitting `tree.json`. Verified via scipy.signal.freqz that
+  the two conventions yield identical frequency response with the
+  sign-flip applied.
+- Variance estimator: biased (1/N) is the default; will be revised to
+  unbiased (1/(N−1)) if parity gate fails at the variance feature.
+- Threshold comparison operator: `<=` (lte) is the default; will be
+  revised to `<` (lt) if parity gate fails on exact-threshold windows.
+
+These are verifiable against silicon, not methodological commitments
+that require pre-registration.
+
+### External timestamp
+
+This amendment is committed to the public repository at
+github.com/akulswami/sensor-mlc-latency. The commit will be tagged as
+`prereg-amendment-2026-05-22`. The repository release will be mirrored
+to Zenodo with a new DOI distinct from the v2 (10.5281/zenodo.20042123)
+and v3 (10.5281/zenodo.20060848) DOIs. The new DOI will be inserted
+into this section after the Zenodo mirror is created and will be the
+authoritative external timestamp.
