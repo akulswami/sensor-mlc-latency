@@ -109,4 +109,13 @@ static const mlc_write_t MLC_CONFIG[] = {
 #define MLC_OUT_STILL 0x00
 #define MLC_OUT_MOTION 0x04
 
+
+/* Compatibility aliases for legacy probe code (mlc_poll_probe_v2.c)
+ * that was originally written for the tap detector and hardcodes
+ * MLC_OUT_TAP / MLC_OUT_NONTAP class names. The probe's job here
+ * is just to print a histogram of MLC0_SRC values, so the
+ * semantic class label doesn't matter for what we're using it for.
+ * Remove these when we write a header-agnostic capture binary. */
+#define MLC_OUT_NONTAP MLC_OUT_STILL
+#define MLC_OUT_TAP    MLC_OUT_MOTION
 #endif /* DATA_MEMS_STUDIO_2026_05_22_W75_MLC_MOTION_W75_H */
