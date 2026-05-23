@@ -181,6 +181,7 @@ int main(int argc, char **argv) {
     int poll_us = -1;
     int duration_sec = 30;
     const char *csv_path = NULL;
+    bool stream_stdout = false;
 
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--pulsed"))       latched = false;
@@ -188,9 +189,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--poll-us") && i + 1 < argc) poll_us = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--duration") && i + 1 < argc) duration_sec = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--csv") && i + 1 < argc) csv_path = argv[++i];
+        else if (!strcmp(argv[i], "--stdout")) stream_stdout = true;
         else {
             fprintf(stderr, "usage: %s [--pulsed|--latched] [--poll-us N] "
-                    "[--duration SEC] [--csv PATH]\n", argv[0]);
+                    "[--duration SEC] [--csv PATH] [--stdout]\n", argv[0]);
             return 2;
         }
     }
@@ -231,7 +233,22 @@ int main(int argc, char **argv) {
         }
     }
 
-    printf("%-12s %-8s\n", "elapsed_ms", "src");
+    /* Header line.
+     * - In streaming mode, stdout carries the CSV (with header) and the
+     *   transition log goes to stderr.
+     * - In non-streaming mode, stdout shows the human-readable
+     *   transition log (preserves v2/v3 default behavior). */
+    if (stream_stdout) {
+        printf("elapsed_ms,mlc_src,ax_g,ay_g,az_g\n");
+        fflush(stdout);
+        /* Line-buffer stdout so each row leaves the process immediately
+         * and ssh-pipe consumers see data smoothly rather than in 4-8 kB
+         * blocks. */
+        setvbuf(stdout, NULL, _IOLBF, 0);
+        fprintf(stderr, "%-12s %-8s\n", "elapsed_ms", "src");
+    } else {
+        printf("%-12s %-8s\n", "elapsed_ms", "src");
+    }
 
     uint64_t t0_us = now_us();
     uint8_t prev = 0xFF;
@@ -260,11 +277,20 @@ int main(int argc, char **argv) {
             fprintf(csv_fp, "%llu,0x%02X,%.4f,%.4f,%.4f\n",
                     (unsigned long long)dt_ms, v, ax, ay, az);
         }
+        if (stream_stdout) {
+            printf("%llu,0x%02X,%.4f,%.4f,%.4f\n",
+                   (unsigned long long)dt_ms, v, ax, ay, az);
+        }
 
         if (v != prev) {
             ++edges_in[v];
-            printf("%-12llu 0x%02X\n", (unsigned long long)dt_ms, v);
-            fflush(stdout);
+            if (stream_stdout) {
+                fprintf(stderr, "%-12llu 0x%02X\n",
+                        (unsigned long long)dt_ms, v);
+            } else {
+                printf("%-12llu 0x%02X\n", (unsigned long long)dt_ms, v);
+                fflush(stdout);
+            }
             prev = v;
         }
         nanosleep(&poll_ts, NULL);
