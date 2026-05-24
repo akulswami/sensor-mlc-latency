@@ -1,0 +1,30 @@
+F2_ABS_PEAK_TO_PEAK_ACC_V_FILTER_1 <= 0.028564 : still (8800/711.0)
+F2_ABS_PEAK_TO_PEAK_ACC_V_FILTER_1 > 0.028564 : motion (7441/35.0)
+
+Number of Leaves: 2
+Size of the tree: 3
+
+Classes:
+=> still, motion
+
+Features:
+=> F1_ABS_VARIANCE_ACC_V_FILTER_1, F2_ABS_PEAK_TO_PEAK_ACC_V_FILTER_1
+
+=============== Complete trainging data statistics ===============
+
+Confusion Matrix:
+       still	motion	  <- classified as
+still  10097	54	
+motion 875	9276	
+
+Total Number of Instances: 20302
+Correctly Classified Instances: 19373
+Incorrectly Classified Instances: 929
+
+Accuracy:       95.42 %
+Cohen's kappa:  90.85 %
+
+Report: precision	recall	support
+still  0.92	0.99	10151
+motion 0.99	0.91	10151
+avg/total 0.96	0.95	20302

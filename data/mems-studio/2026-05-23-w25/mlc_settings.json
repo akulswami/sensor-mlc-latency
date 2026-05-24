@@ -1,0 +1,86 @@
+{
+    "accelerometer_fs": "2 g",
+    "accelerometer_odr": "208 Hz",
+    "config_output_filename": "/home/akulswami/mlc.json",
+    "datalogs": [
+        {
+            "filename": "sensor-mlc-latency/data/training/2026-05-20/still/accel.csv",
+            "label": "still"
+        },
+        {
+            "filename": "sensor-mlc-latency/data/training/2026-05-20/motion/accel.csv",
+            "label": "motion"
+        },
+        {
+            "filename": "sensor-mlc-latency/data/training/2026-05-21/motion/accel.csv",
+            "label": "motion"
+        },
+        {
+            "filename": "sensor-mlc-latency/data/training/2026-05-21/still/accel.csv",
+            "label": "still"
+        }
+    ],
+    "decision_tree_count": "1",
+    "dectrees": [
+        {
+            "filename": "ST_decision_tree_20260523_202706_805.txt",
+            "max_depth": 2047,
+            "metaclassifier": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "min_samples_leaf": 30,
+            "results": [
+                {
+                    "label": "still",
+                    "value": 0
+                },
+                {
+                    "label": "motion",
+                    "value": 4
+                }
+            ],
+            "test_train_split": 0.8
+        }
+    ],
+    "features": [
+        {
+            "feature_name": "VARIANCE",
+            "input": "Acc_V_filter_1",
+            "signed": false
+        },
+        {
+            "feature_name": "PEAK_TO_PEAK",
+            "input": "Acc_V_filter_1",
+            "signed": false
+        }
+    ],
+    "features_output_filename": "/home/akulswami/features.arff",
+    "filters": [
+        {
+            "a2": "0.941339",
+            "b1": "0.970669",
+            "b2": "-0.970669",
+            "filter_id": "filter_1",
+            "filter_type": "IIR1",
+            "input": "Acc_V"
+        }
+    ],
+    "gyroscope_fs": "2000 dps",
+    "gyroscope_odr": "26 Hz",
+    "input_type": "accelerometer_only",
+    "json_format": {
+        "type": "mlc_settings",
+        "version": "1.0"
+    },
+    "max_dectrees": 8,
+    "max_results_per_dt": 16,
+    "mlc_odr": "104 Hz",
+    "name": "LSM6DSOX",
+    "subgroups_per_dt": 4,
+    "thresh_accu_to_take_default": 0.05,
+    "thresh_n_percentage_default": 0.05,
+    "window_length": "25"
+}
