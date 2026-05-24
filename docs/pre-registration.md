@@ -1167,3 +1167,103 @@ No code changes are required by v6.1 because v6's code change was never implemen
 ### External timestamp
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-24-v6-1`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into this section.**
+
+## Amendment 2026-05-24 (v7): Servo-driven burst protocol for latency trials; window-length selection; hypothesis priority; Saleae channel and sample-rate correction
+
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.[TBD — to be inserted same day per v5 Change 4 hard procedural gate].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+The following datasets and artifacts were produced under prior protocols and are explicitly classified by this amendment:
+
+- **§9 accuracy parity data is retained and unaffected.** The §9 gate computation from 2026-05-23 evening (host 98.74% vs. silicon 99.79%, gap 1.05 pp, computed on session 4 / window length w=75) stands. The S4-prime, S5, S6 captures from 2026-05-24 (window lengths w=75, w=25, w=200 respectively) provide silicon-side single-pipeline accuracy data; host-side accuracy on those captures has not yet been computed and is required before the latency experiment runs (see "Change 1" below for the operational consequence).
+
+- **No latency data collected under any prior protocol is used toward the pre-registered measurement.** Specifically:
+  - The S1–S6 Saleae captures (training and parity sessions, 2026-05-20 through 2026-05-24) do not contain the decision-GPIO trace required by §6. They were captured with `SALEAE_DIGITAL_CHANNELS = [0, 2]` (training sessions) or `[0, 2, 3]` (parity sessions) at 12.5 MS/s. The decision-GPIO wire (Jetson Pin 11, gpiochip0 line 112) was physically connected to Saleae D3 on 2026-05-24, but only the parity sessions reflect this routing in code; the S1–S6 captures predate the routing and contain D0 (INT) and D2 (PWM) only.
+  - The output of `code/analysis/extract_latency_from_saleae.py` (untracked file producing `saleae_timing.csv` in S4-prime, S5, S6 directories) computes the interval from D0_rising to the next D2_falling. This quantity is not the pre-registered wire-level latency (which is D0_rising to decision-GPIO_rising). It is not a measurement toward this pre-registration.
+  - The bring-up observations from 2026-05-05/06 (`latency_test_mlc_activity`, ~464–516 µs, n=18) were excluded by v3 amendment line 471–474 and remain excluded.
+
+No pre-registered latency measurement runs (n=500 per condition, per §3) have been executed under any version of this pre-registration.
+
+---
+
+### Change 1: §4 window length — fixed at w=25 for the latency comparison
+
+The §9 results from 2026-05-24 (silicon-side accuracy on S4-prime/S5/S6, written to `code/analysis/section9_results.txt`) selected w=25 as the highest-accuracy window length on the silicon side: w=25 = 99.959%, w=200 = 99.913%, w=75 = 99.572%. Host-side accuracy across the three window lengths has not yet been computed.
+
+Under this amendment:
+
+- The latency comparison runs at **w=25 only**. The custom-trained classifier `mlc_motion_w25.h` and the corresponding host port (same tree.json, same threshold, w=25 sliding window in `parity_core.c`) are the operational pipelines for §3/§6 trial collection.
+- Before any latency capture, the §9 parity gate is evaluated **on the S5 captures (w=25)** with the host pipeline run offline via `replay_parity` against S5's `accel.csv`. The gate requires |accuracy_host − accuracy_silicon| ≤ 2 pp and both ≥ 90% per §9. If either condition fails, the latency experiment is not run and a further amendment is required.
+
+w=75 and w=200 are not used in the latency experiment. The S4-prime and S6 captures are retained in the repository for reproducibility of the §9 window-length selection result but do not enter the latency analysis.
+
+### Change 2: §3 / §6 trial definition — servo-driven burst protocol
+
+The v2 amendment defined a trial as a binary-state transition (still↔motion). The current host (`host_pipeline_parity.c`) and MLC (`latency_test_mlc.c`) inference binaries already emit a decision-GPIO edge only on binary-state transitions; sub-window decisions where the binary state is unchanged do not produce edges. This transition-based trial definition is retained from v2.
+
+This amendment specifies the **stimulus protocol that generates transitions**:
+
+- **Burst structure:** within a continuous capture session, the servo alternates 5 seconds of motion (full-amplitude sweep at the rate specified in `docs/training-data-spec.md`) with 5 seconds of still (servo held at center position). One 10-second cycle = two state changes (still→motion at second 0, motion→still at second 5).
+- **Per-session trial yield:** 1200-second session × 1 cycle / 10 s × 2 transitions/cycle = **240 candidate trials per session**.
+- **Sessions per condition:** ceil(500 / 240) = **3 sessions per condition**. Total: 12 sessions across the 4 conditions {MLC, host} × {no-stress, stress}.
+- **Trial gating from sweep.log:** the orchestrator's `sweep.log` records the monotonic-clock timestamp of each commanded servo state change. For each sweep.log entry at time T_stim, the trial associated with that stimulus is the next D3 rising edge whose paired D0 rising edge (the most recent D0 edge before that D3 edge, within ≤100 ms) occurs after T_stim. There is **exactly one trial per stimulus change**; subsequent D3 edges before the next stimulus change are not counted as trials.
+- **Clock alignment:** `session.json` already records `clock_offset_s` between the imu_logger monotonic clock and the mlc_poller monotonic clock. The same monotonic clock anchors `sweep.log` (verified by orchestrator implementation in `run_session_parity.py`). The Saleae capture clock is aligned to the imu_logger monotonic clock at session start via a synchronization edge in the orchestrator's start sequence; the offset is recorded in `session.json` as a new field `saleae_sync_offset_s`. **The orchestrator must implement this synchronization edge before the next capture; this is an operational gate on the latency experiment.**
+
+### Change 3: §6.1 latency measurement — D0 → D3, pure Saleae, gated by sweep.log
+
+The pre-registered measurement at §6.1 is unchanged in substance: latency per trial = (D3 rising edge timestamp) − (D0 rising edge timestamp). All timestamps are read from the Saleae capture; no software timestamps enter the measurement.
+
+`sweep.log` is used **only** to identify which D0/D3 pairs are trials toward §3's per-condition trial count. It does not enter the latency value itself. This preserves the irrefutability of the wire-level measurement: every published latency number is supported by two timestamps from the same Saleae capture, with the gating sweep.log timestamp and the synchronization offset both recorded in `session.json` for audit.
+
+### Change 4: §6.2 Saleae channel correction and sample-rate correction
+
+**Channel correction:** Earlier pre-registration text references "decision GPIO" without specifying a Saleae channel. The Adafruit/Jetson wiring routes the decision GPIO from Jetson Pin 11 (gpiochip0 line 112) to **Saleae D3**. The documentation in `docs/pin-assignment.md` previously listed D1 as the decision channel; this was stale text predating the rewire on 2026-05-24, and is corrected by this amendment.
+
+**Sample-rate correction:** §6.1 line 85 of the original pre-reg specifies Saleae digital input at ≥ 50 MS/s. The orchestrator setting `SALEAE_DIGITAL_SAMPLE_RATE` was 12,500,000 (12.5 MS/s) through commit `995e8c9`. Captures S1 through S6 were therefore taken at one-quarter the pre-registered sample rate. The 12.5 MS/s rate provides 80 ns timing resolution, well below the 10 µs / 50 µs thresholds of §6.3; the under-sampling does not affect any quantity to be reported. However, the pre-registered rate is the operational specification, and all captures under v7 will be at 50 MS/s. The S1–S6 captures are retained for reproducibility of the §9 window-length selection but do not enter the latency analysis (per "Data collected under prior protocol" above).
+
+### Change 5: §2 hypothesis priority for the IEEE Sensors Letters submission
+
+The hypotheses H1–H4 are unchanged in their formulations and pre-registered null/alternative structure. This amendment specifies their **reporting priority** in the submitted paper:
+
+- **H4 (MLC robustness — primary):** the central finding. Equivalence test (TOST) per §6.3 and §12.1. CI on Hodges-Lehmann shift between MLC-stress and MLC-no-stress.
+- **H3 (host degradation — secondary):** supporting result. One-sided Mann-Whitney U per §12.1.
+- **H2 (effect-size growth under stress — secondary):** reported if power at n=500 is adequate; reported descriptively with bootstrap CI if not.
+- **H1 (MLC-vs-host under no-stress — descriptive):** the prediction H1₁ (MLC faster) is **expected to be rejected** under the windowed motion-vs-still task, because the on-sensor MLC's window-completion delay structurally exceeds the host's sample-by-sample decision latency. This is reported honestly. H1's interest is as the empirical confirmation that on-sensor inference is not free in absolute terms; the paper's contribution is the **decoupling under stress** finding from H4, not absolute speed.
+
+Holm-Bonferroni correction at family-wise α = 0.05 still applies across {H1, H2, H3, H4} per §12.2.
+
+### Change 6: Operational gates before latency capture begins
+
+The latency experiment shall not begin until **all** of the following are committed to `main`:
+
+1. **Saleae sync-edge implementation** in `run_session.py` / `run_session_parity.py`, emitting a synchronization edge at session start that is captured by the Saleae (channel TBD by implementer; D0 or D3 acceptable). `saleae_sync_offset_s` field added to `session.json` schema.
+2. **§10 measurement-protocol.md** (per original pre-reg §10) consolidating sensor ODR, full-scale range, filter settings, I2C bus speed, and register-read sequences. Currently scattered across `run_session.py`, `parity_core.h`, and lab notebooks.
+3. **`code/stress/run_stress.sh`** (per original pre-reg §10) with stress-ng invocation flags. **`env/stress-ng-version.txt`** pinning the binary version.
+4. **`code/orchestrator/run_stress_block.py`** integrating stress condition into the capture sequence, with pre-block tegrastats verification per §8.
+5. **Block-randomization seed** at `code/analysis/block_order_seed.txt`.
+6. **Replacement latency extractor** at `code/analysis/extract_latency_v7.py` (D0_rising → D3_rising, sweep.log gating, §6.2 100 ms exclusion, §11 overlapping-edge exclusion). Unit tests on synthetic Saleae traces.
+7. **§9 gate evaluation on S5 (w=25)** with host pipeline run via `replay_parity --tree code/mlc_config/tree_w25.json --csv data/training/2026-05-24-S5/{still,motion}/accel.csv`. Gate must pass (host ≥ 90%, silicon ≥ 90%, gap ≤ 2 pp) before latency capture starts.
+8. **Statistical-analysis code** at `code/analysis/statistics.py` (Mann-Whitney U, bootstrap CI, Hodges-Lehmann, TOST, Holm-Bonferroni). Validated against `scipy.stats` reference on synthetic inputs.
+
+### What is NOT changed
+
+- §1 Research question. Unchanged.
+- §2 Hypotheses H1–H4 formulations, null/alternative structure. Unchanged in substance; only reporting priority is specified.
+- §3 Design: two-factor (pipeline × stress) fully-crossed, n=500 per condition × 4 conditions = 2,000 trials. Unchanged.
+- §6.3 Effect-size definitions (10 µs / 50 µs thresholds for H4). Unchanged.
+- §7 Randomization and blocking (10 blocks per condition, block-randomized order from seeded RNG). Unchanged.
+- §8 Stress condition specifications (stress-ng saturating all cores). Unchanged in substance; implementation gated per Change 6.
+- §9 Accuracy parity gate threshold (≥90% both pipelines, ≤2 pp gap). Unchanged.
+- §11 Exclusion criteria. Unchanged; per-condition exclusion rate cap of 10% applies.
+- §12 Statistical analysis plan. Unchanged; implementation gated per Change 6.
+- §13 Deviations and reporting. Unchanged. This amendment is itself disclosure of a methodology change.
+- v5 Change 2 mount-geometry pre-check protocol. Applies to v7 latency captures.
+
+### Stop condition
+
+If §9 gate evaluation on S5 (w=25, per Change 6 item 7) fails — i.e., host accuracy < 90%, or silicon accuracy < 90%, or |host − silicon| > 2 pp — the latency experiment is not run. The required response per §9 of the original pre-reg is: retrain the host model, redesign MLC features, or switch task (which would require a further amendment).
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-24-v7`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into this section.**

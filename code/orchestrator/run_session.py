@@ -61,7 +61,7 @@ DEFAULT_ODR_HZ = 208
 #   D2 = PCA9685 channel 0 PWM
 SALEAE_DIGITAL_CHANNELS = [0, 2, 3]
 SALEAE_ANALOG_CHANNELS = []
-SALEAE_DIGITAL_SAMPLE_RATE = 12_500_000  # 12.5 MS/s, well above Nyquist for both signals
+SALEAE_DIGITAL_SAMPLE_RATE = 50_000_000  # 50 MS/s per pre-reg §6.1 (raised from 12.5 MS/s in v7 amendment 2026-05-24)
 
 
 # --- Helpers ---
