@@ -1128,3 +1128,42 @@ authoritative external timestamp.
 - S1 vs S2 distance: d = 0.0603 g
 - **Threshold 0.05 g catches ~5 mGal shifts (real remounts); 0.0247 g noise is within mount stability.**
 
+
+## Amendment 2026-05-24 (v6.1): Retraction of v6 mount-threshold adjustment
+
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.[TBD — to be inserted same day per v5 Change 4 hard procedural gate].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+No data has been collected under v6. The v6 amendment (2026-05-24, earlier same day) was drafted and committed to `docs/pre-registration.md` but was never externally timestamped via Zenodo, and the `MOUNT_THRESHOLD_G` code constant in `code/orchestrator/run_session_parity.py` was never changed from its v5 Change 2 value of 0.065 g. No parity-test session or latency-capture session has been initiated under v6's proposed 0.05 g threshold.
+
+The S4-prime, S5, and S6 parity captures (2026-05-24) were collected under v5 Change 2 with `MOUNT_THRESHOLD_G = 0.065`; their pre-registration status is unaltered by this amendment.
+
+### Reason for retraction
+
+The v6 amendment proposed lowering `MOUNT_THRESHOLD_G` from the v5 Change 2 value of 0.065 g to 0.05 g, on the grounds that:
+
+- The current mount centroid distance from the S1+S2 reference centroid was 0.0247 g, well below either threshold.
+- The S1↔S2 inter-session distance was 0.0603 g, suggesting that 0.05 g would still catch real remounts while accommodating sensor noise.
+
+**That numerical reasoning is not retracted.** The retraction's basis is procedural:
+
+**Mount stability beyond ~48 hours is not characterized in this project.** The S1, S2, S3, S4-prime, S5, S6 captures were collected within a ~96-hour window (2026-05-20 to 2026-05-24, mostly on a fixed mount). The v7 latency-capture campaign (12 sessions across 4 conditions per v7 Change 2) will be the project's first capture series that may extend over multiple days with the same physical rig under varied thermal conditions (some sessions running under stress-ng CPU saturation, others idle). If thermal drift, mount-screw creep, or carrier-board mechanical settling produce mount-position drift larger than 0.0247 g but smaller than 0.05 g over multi-day timescales, a 0.05 g threshold would fail to detect that drift while a 0.065 g threshold would still tolerate it (by margin) without triggering a false re-mount requirement.
+
+The conservative bound from v5 Change 2 is retained pending characterization of multi-day mount stability. This is a conservative posture, not a refutation of v6's reasoning. If post-v7 analysis shows mount-centroid drift remained well below 0.0247 g across the multi-day v7 campaign, a future amendment may revisit the threshold with multi-day empirical grounding.
+
+### Change
+
+`MOUNT_THRESHOLD_G` in `code/orchestrator/run_session_parity.py` remains at **0.065 g** (the v5 Change 2 value). v6's proposed change to 0.05 g is not adopted under this amendment.
+
+No code changes are required by v6.1 because v6's code change was never implemented.
+
+### What is NOT changed
+
+- All other provisions of v5 Change 2 — mount-check protocol structure, pre-check / post-check / drift criteria, the four new `session.json` fields (`mount_precheck_attempts`, `mount_precheck_pass_d_g`, `mount_postcheck_d_g`, `mount_postcheck_drift_max_g`), and the `mount_precheck.csv` artifact. Unchanged.
+- v6 amendment text remains in `docs/pre-registration.md` as the historical record of the proposed change. This amendment retracts the proposed change, not the documentation of having considered it. The pre-registration is append-only per the protocol stated at the top of this file.
+- All other pre-registration amendments (v1 original spec, v2 SPI→I2C, v3 task switch, v4 ODR/labeling, v5 test-set redesignation + mount protocol + schema + same-day Zenodo gate). Unchanged.
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-24-v6-1`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into this section.**
