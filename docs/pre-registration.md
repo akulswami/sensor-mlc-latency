@@ -1270,7 +1270,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-24 (v7.1): Correction of v7 Change 4 — Saleae channel mapping for decision GPIO
 
-**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.[TBD — to be inserted same day per v5 Change 4 hard procedural gate].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20370549 (https://doi.org/10.5281/zenodo.20370549).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
