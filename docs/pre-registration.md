@@ -1131,7 +1131,7 @@ authoritative external timestamp.
 
 ## Amendment 2026-05-24 (v6.1): Retraction of v6 mount-threshold adjustment
 
-**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.[TBD — to be inserted same day per v5 Change 4 hard procedural gate].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20370205 (https://doi.org/10.5281/zenodo.20370205).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
