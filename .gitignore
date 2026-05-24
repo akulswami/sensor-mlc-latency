@@ -50,3 +50,6 @@ data/training/*-btest/
 
 # Sweep logs are valuable data (ground-truth label timestamps)
 !data/training/**/*.log
+# Compiled binaries (host inference)
+code/jetson/host_inference/replay_parity
+code/jetson/host_inference/replay_host
