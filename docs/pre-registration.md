@@ -782,3 +782,324 @@ and v3 (10.5281/zenodo.20060848) DOIs. The new DOI is
 10.5281/zenodo.20358317 (https://doi.org/10.5281/zenodo.20358317).
 The DOI of the Zenodo release containing this amendment is the
 authoritative external timestamp.
+
+## Amendment 2026-05-23: §9 test-set redesignation, mount-geometry pre/post-checks, parity-capture session.json schema, same-day Zenodo commitment
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+Three training sessions (2026-05-20, 2026-05-21, 2026-05-22) and one
+parity-capture session (2026-05-23) were collected under the v4
+amendment. v4 named session 3 (2026-05-22) as the held-out test set for
+the §9 parity gate. As detailed in Change 1 below, session 3 cannot
+serve that role under v4's §9 framing because it was collected before
+silicon-side instrumentation came online. The §9 parity gate for the
+w=75 candidate was run on 2026-05-23 against session 4; the result is
+reclassified by this amendment as preliminary, not gate-of-record, on
+mount-geometry grounds (Change 2). This amendment redesignates the §9
+test sessions for all three candidate window lengths, pins a
+pre-capture mount-geometry protocol, pins the session.json schema for
+parity captures, and commits to same-day Zenodo publication.
+
+No pre-registered measurement runs (n=500 per condition) have been
+executed; this amendment precedes measurement.
+
+### Change 1: §9 test-set redesignation — sessions 4-prime, 5, 6 in place of session 3
+
+The v4 amendment (Change 3, "Window-length evaluation in progress")
+states:
+
+> "the parity gate at §9 (host classifier and silicon classifier each
+> ≥90% on the held-out test session, with ≤2pp gap) is the gating
+> criterion, and is run on session 3 (2026-05-22) which was not loaded
+> into MEMS Studio for training."
+
+v4 did not anticipate, and did not resolve, a contradiction between
+the test-set designation (session 3) and the §9 gate's data
+requirements (silicon-side classifications). Session 3 was collected by
+`code/orchestrator/run_session.py`, which produces `accel.csv` and
+`saleae.sal` only. The silicon-side polling capability
+(`code/sensor/mlc_poller.c`) and the parity-capture orchestrator
+(`code/orchestrator/run_session_parity.py`) had not yet been written
+when session 3 was captured. As a result, session 3 has no
+`silicon_raw.csv`, no `mlc_poller` log, and no clock-offset metadata
+linking sensor-side and silicon-side timelines. The §9 gate as v4
+specifies it — a per-pipeline accuracy comparison between host
+classifications and silicon classifications — cannot be evaluated on
+session 3 because one of the two pipeline outputs does not exist for
+that session.
+
+Session 4 (2026-05-23) was captured as the first session under
+`run_session_parity.py` and is the first session containing
+`silicon_raw.csv`, `mlc_poller.stderr.log`, and the parity-capture
+fields in `session.json` (see Change 3 for the pinned schema). The §9
+parity-gate analysis run on the evening of 2026-05-23 used session 4
+as the test set for the w=75 candidate and reported a 1.05 pp gap
+(host 98.74%, silicon 99.79%); see `docs/lab-notebook/2026-05-23.md`
+§"Late evening update". As detailed in Change 2, session 4's mount
+geometry is insufficiently distinct from the S1+S2 training corpus to
+satisfy the generalization-stress role of a held-out session. This
+amendment therefore reclassifies session 4 from "§9 test set for w=75"
+to "preliminary parity capture; informs mechanism work but not the
+§9 gate of record." The w=75 §9 gate is re-run against a new
+capture (session 4-prime) collected under the Change 2 protocol.
+
+The redesignated §9 test sessions are:
+
+| Window length | Test session  | Status as of this amendment |
+|---|---|---|
+| w=75  | Session 4-prime (date TBD) | Pending. To be captured under Change 2 protocol with current w=75 silicon flash. |
+| w=25  | Session 5 (date TBD)        | Pending. To be captured after w=25 silicon flash, under Change 2 protocol. |
+| w=200 | Session 6 (date TBD)        | Pending. To be captured after w=200 silicon flash, under Change 2 protocol. |
+
+Each candidate window length is gated against its own per-window-length
+capture session, on the same hardware, under the v4 by-file labeling
+protocol, with the silicon flashed to the window-specific MLC config,
+and under the Change 2 pre/post mount-geometry protocol.
+
+Session 3 is reclassified from "held-out §9 test set" to "captured but
+unused." Session 3 is retained in `data/training/2026-05-22/` for
+reproducibility audit. It is not loaded into MEMS Studio for training
+under this amendment (preserving the v4 training corpus of sessions
+1+2), and it is not used as a §9 test set (it cannot satisfy the §9
+gate's silicon-side data requirement).
+
+Session 4 is retained in `data/training/2026-05-23/`. The §9 gate
+result obtained against session 4 on 2026-05-23 (1.05 pp gap; host
+98.74%, silicon 99.79%) is preliminary and does not satisfy the
+gate-of-record for w=75. The two mechanism-falsification findings of
+2026-05-23 (FP16 emulation falsified; bus-contention sample-gap audit
+falsified) concern silicon's computation pathway and are
+session-independent; they are retained as preliminary supporting
+evidence and will be re-run on session 4-prime data for paper
+consistency.
+
+The decision to not retroactively augment session 3 with silicon-side
+data, nor to retrain w=75 on a larger corpus, is made in service of
+three properties: (a) preserving the v4 training corpus of S1+S2 so
+the comparison across the three candidate window lengths is on window
+length alone and not confounded by training-set differences, (b)
+preserving methodological scope (this amendment redesignates tests,
+not retraining), and (c) keeping the amended protocol's scope narrow.
+
+### Change 2: Pre-capture and post-capture mount-geometry protocol for parity captures
+
+The `docs/train-test-split-decision.md` rationale §"Rationale" 2
+("Stress test on the marginal re-mount") motivates choosing a
+held-out session whose mount geometry differs meaningfully from the
+training corpus, so that a passing §9 gate is evidence of
+generalization to a mount that is close-but-not-identical to those
+seen in training. v4 did not formalize a numeric criterion for this
+property, and session 4's geometric distance from the S1+S2 centroid
+(0.007 g; see below) is small enough that the marginal-re-mount role
+is not credibly preserved. This amendment formalizes a numeric
+mount-geometry threshold and a procedural pre/post-capture protocol.
+
+**Threshold definition.** Compute, on a still-class recording, the
+per-axis mean acceleration (X̄_cap, Ȳ_cap, Z̄_cap) over the
+designated check window. The pre-registered S1+S2 still-class
+centroid is:
+
+  (X̄_train, Ȳ_train, Z̄_train) = (-0.0116, -0.0754, -0.9664) g
+
+The Euclidean distance from the capture's still-class centroid to the
+training centroid is:
+
+  d = √((X̄_cap − X̄_train)² + (Ȳ_cap − Ȳ_train)² + (Z̄_cap − Z̄_train)²)
+
+A parity capture **passes the mount-geometry check** iff d ≥ **0.065 g**.
+
+This threshold is set as 1.5× the S1↔S2 inter-session distance
+(d(S1,S2) = 0.0403 g), rounded up to 0.065 g for conservatism.
+Setting the threshold ≥ S1↔S2 inter-session variability ensures the
+held-out session represents a mount geometry meaningfully distinct
+from the natural between-session variability of the training corpus,
+restoring the marginal-re-mount role.
+
+**Reference values from prior sessions** (for context; these sessions
+do not retroactively pass or fail this v5-defined threshold, which
+applies only to parity captures collected after this amendment):
+
+| Session | Still-class distance from S1+S2 centroid (g) |
+|---|---|
+| S3 (2026-05-22) | 0.025 |
+| S4 (2026-05-23) | 0.007 |
+
+Both fall short of the v5 threshold; this is consistent with v5's
+purpose of strengthening the marginal-re-mount property going forward.
+
+**Pre-capture check (gates capture start).** After re-mounting the
+sensor at the start of a parity-capture session:
+
+1. Record 30 seconds of still data at 208 Hz, written to
+   `mount_precheck.csv` in the session directory.
+2. Compute (X̄, Ȳ, Z̄) over `mount_precheck.csv` and d to the S1+S2
+   centroid.
+3. If d ≥ 0.065 g, proceed to the 1200-sec still and motion captures.
+4. If d < 0.065 g, re-mount the sensor and return to step 1. Log
+   each failed pre-check attempt in the session's lab-notebook entry
+   with (X̄, Ȳ, Z̄) and d values; the session.json's
+   `mount_precheck_attempts` field records the count.
+
+**Post-capture check (gates session validity).** After the 1200-sec
+still recording completes:
+
+1. Compute (X̄_post, Ȳ_post, Z̄_post) over the full 1200 sec of
+   `still/accel.csv`.
+2. Compute d_post to the S1+S2 centroid.
+3. The session is valid iff d_post ≥ 0.065 g AND the per-axis drift
+   between pre-check means and post-still means is ≤ 0.005 g per axis
+   (no axis drifts more than 5 mg over the still recording).
+4. If either condition fails, the session is invalidated; the data
+   is retained for audit but is not used as the §9 test set, and a
+   new capture session must be performed.
+
+The 5 mg per-axis drift bound is set conservatively above the
+documented session-3 axis-stability of 0.3 mg (`data/training/2026-05-22/notes.md`
+§"Mount-orientation evidence") and well below the 65 mg threshold;
+its purpose is to detect gross mount drift (cable strain, foam tape
+relaxation, vibration loosening), not micro-drift.
+
+**What this protocol does not do.** It does not check the motion-class
+mount geometry separately (motion injects servo-vibration energy that
+swamps mount-mean differences). It does not require specific axis
+deltas (the test is on Euclidean distance, not per-axis). It does not
+apply retroactively to S3 or S4.
+
+### Change 3: session.json schema pinned for parity-capture sessions
+
+Sessions 4-prime, 5, and 6 are parity-capture sessions whose
+`session.json` file must contain fields beyond those used by
+training-only sessions, so that downstream alignment
+(`code/analysis/silicon_align.py`) and the Change 2 mount-geometry
+audit can operate without ad-hoc assumptions. The schema below is
+pinned by this amendment; the orchestrator implementation
+(`run_session_parity.py`) must produce these fields and only these
+fields at the top level for each class entry. Future tooling that
+adds fields at this level requires a pre-registration amendment.
+
+**Top-level session.json fields (parity-capture sessions):**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `session_date` | string | yes | ISO date `YYYY-MM-DD` |
+| `session_type` | string | yes | Literal `"parity"` for parity captures |
+| `btest` | bool | yes | True for bring-up tests; false for measurement-eligible captures |
+| `duration_sec_per_class` | int | yes | Per-class recording length in seconds |
+| `odr_hz` | int | yes | Accelerometer ODR (208 Hz per spec) |
+| `pwm_center_ticks`, `pwm_min_ticks`, `pwm_max_ticks` | int | yes | PCA9685 tick values defining the motion stimulus envelope |
+| `mlc_config_header` | string | yes | Filename of the MLC config header flashed for this capture (e.g., `mlc_motion_w75.h`) |
+| `mlc_poll_hz` | int | yes | Target silicon polling rate (effective rate logged separately in `mlc_poller.stderr.log`) |
+| `mount_precheck_attempts` | int | yes | Number of pre-check attempts; ≥1 for a valid session |
+| `mount_precheck_pass_d_g` | float | yes | Euclidean distance d (g) on the passing pre-check |
+| `mount_postcheck_d_g` | float | yes | Euclidean distance d_post (g) on the post-capture still recording |
+| `mount_postcheck_drift_max_g` | float | yes | Maximum per-axis drift |X̄_post − X̄_pre| over (X, Y, Z), in g |
+| `started_at`, `finished_at` | string (ISO8601) | yes | Wall-clock session bounds |
+| `classes` | list | yes | One entry per class (still, motion); per-class fields below |
+
+**Per-class fields in `classes[]`:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `class` | string | yes | `"still"` or `"motion"` |
+| `duration_sec` | int | yes | Per-class recording length |
+| `csv_lines` | int | yes | Line count of `accel.csv` including header |
+| `silicon_raw_lines` | int | yes | Line count of `silicon_raw.csv` including header + comment lines |
+| `started_at` | string | yes | Wall-clock start of this class's recording |
+| `imu_t0_monotonic_s` | float | yes | `CLOCK_MONOTONIC` reading at the first accel sample |
+| `mlc_t_start_monotonic_s` | float | yes | `CLOCK_MONOTONIC` reading at the first silicon poll |
+| `clock_offset_s` | float | yes | `mlc_t_start_monotonic_s − imu_t0_monotonic_s`; used by `silicon_align.py` to convert silicon polls into accel-relative time |
+
+**Required adjacent artifacts per session directory:**
+
+- `mount_precheck.csv` — 4-column accel log of the passing 30-sec
+  pre-check (same schema as `accel.csv`)
+- `still/accel.csv` — 4-column accel log (timestamp, ax, ay, az), one
+  row per 208 Hz sample
+- `still/silicon_raw.csv` — 2-column silicon poll log with header
+  `t_monotonic_s, mlc_src` and leading `#` comment lines (poller
+  version, poll_hz, duration_sec)
+- `still/mlc_poller.stderr.log` — poller stderr with
+  `t_start_monotonic` recorded; the `effective_hz` from this file is
+  used in the cross-rate sanity check in `silicon_align.py`
+- `still/saleae.sal` — Saleae capture spanning the recording
+- `motion/{accel.csv, silicon_raw.csv, mlc_poller.stderr.log, saleae.sal}` — same per-artifact requirements as still/
+
+Sessions 4-prime, 5, and 6 must conform to this schema. Deviations
+from this schema in those sessions are pre-registration violations
+and require amendment.
+
+### Change 4: Same-day Zenodo commitment
+
+The v4 amendment was committed on 2026-05-22 23:44 PDT but its Zenodo
+DOI (10.5281/zenodo.20358317) was minted on 2026-05-23 evening, after
+session 4's capture. This procedural gap is documented in
+`docs/lab-notebook/2026-05-23.md`. The gap does not, on its own,
+invalidate any subsequent capture (the v4 text was visible to the
+public repository's HEAD throughout the 2026-05-23 capture window),
+but the audit trail is cleaner if external timestamping is
+contemporaneous with the methodology commitment.
+
+Going forward: every pre-registration amendment in this work is
+Zenodo-published on the same calendar day (Pacific time) as the git
+commit. This amendment is the first to which the same-day commitment
+applies.
+
+### What is NOT changed
+
+The hypothesis structure (§2), design (§3), task definition (§4),
+pipelines (§5), primary and secondary outcomes (§6), stress condition
+(§8), §9 accuracy thresholds (≥90% per pipeline, ≤2pp gap), exclusion
+criteria (§11), statistical analysis (§12), and deviations-reporting
+protocol (§13) are unchanged.
+
+The classifier feature set (VARIANCE_NORM, PEAK_TO_PEAK_NORM on
+acceleration norm) and the AFS-off, fixed-feature-set discipline are
+unchanged from v3 and v4. Window-length-dependent retraining under
+this amendment uses the same feature pair for all three candidate
+windows; the MLC ODR cap (104 Hz, from v4) and by-file labeling
+protocol (from v4) are unchanged.
+
+The training corpus (sessions 1+2, with session 3 excluded) is
+unchanged from the w=75 training run committed at
+`data/mems-studio/2026-05-22-w75/`. Sessions 1+2 are the training
+corpus for w=25 and w=200 as well, ensuring window-length
+comparability.
+
+The two mechanism-falsification findings of 2026-05-23 (FP16
+emulation falsified; bus-contention sample-gap audit falsified) are
+retained as preliminary supporting evidence. The conclusions concern
+silicon's computation pathway and are session-independent. They will
+be re-run on session 4-prime data for paper consistency.
+
+### Implementation details NOT requiring pre-registration
+
+The implementation defaults in v4's "Implementation details NOT
+requiring pre-registration" section (IIR filter sign convention,
+variance estimator, threshold comparison operator) remain non-pre-
+registered.
+
+The Python tooling (`code/analysis/silicon_align.py`,
+`code/analysis/mlc_json_to_parity.py`, `code/analysis/fp16_emulate.py`,
+`code/analysis/accel_gap_audit.py`) and the host binary
+`replay_parity.c` are implementation, not methodology, and may be
+modified to support w=25, w=200, and the Change 2 mount-geometry
+audit without amendment provided their methodological behavior
+(window cadence, feature formulas, tree-evaluation semantics,
+mount-check arithmetic per Change 2) is preserved.
+
+The exact Python implementation of the Change 2 pre/post mount-check
+arithmetic is non-pre-registered, but the inputs (still-class accel
+means), the formula (Euclidean distance to the pinned centroid), the
+threshold (0.065 g), the drift bound (0.005 g per axis), and the
+pre-/post-check structure are pre-registered as specified above.
+
+### External timestamp
+
+This amendment is committed to the public repository at
+github.com/akulswami/sensor-mlc-latency and the commit is tagged as
+`prereg-amendment-2026-05-23`. The repository release is mirrored to
+Zenodo at a new DOI distinct from the v2 (10.5281/zenodo.20042123),
+v3 (10.5281/zenodo.20060848), and v4 (10.5281/zenodo.20358317) DOIs.
+The new DOI is `<DOI TBD — to be filled in upon Zenodo mint, same calendar day as the commit>`.
+The DOI of the Zenodo release containing this amendment is the
+authoritative external timestamp.
