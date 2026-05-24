@@ -1267,3 +1267,67 @@ If §9 gate evaluation on S5 (w=25, per Change 6 item 7) fails — i.e., host ac
 ### External timestamp
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-24-v7`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into this section.**
+
+## Amendment 2026-05-24 (v7.1): Correction of v7 Change 4 — Saleae channel mapping for decision GPIO
+
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.[TBD — to be inserted same day per v5 Change 4 hard procedural gate].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+No pre-registered latency measurement runs have been executed under any version of this pre-registration. v7.1 corrects a hardware-state claim in v7's Change 4 that did not affect any captured session, because no session captured the decision-GPIO wire-level signal under any wiring assumption.
+
+The §9 parity gate work performed earlier on 2026-05-24 using `replay_parity` against S5 accel.csv (data/processed: forthcoming) is **unaffected by this correction**. That work depends only on accelerometer CSV data, not on Saleae channel state.
+
+The §9 parity gate result from 2026-05-23 (session 4, host 98.74% vs. silicon 99.79%, gap 1.05 pp) is unaffected.
+
+---
+
+### Reason for this correction
+
+v7's Change 4 stated:
+
+> "Channel correction: Earlier pre-registration text references 'decision GPIO' without specifying a Saleae channel. The Adafruit/Jetson wiring routes the decision GPIO from Jetson Pin 11 (gpiochip0 line 112) to **Saleae D3**. The documentation in `docs/pin-assignment.md` previously listed D1 as the decision channel; this was stale text predating the rewire on 2026-05-24, and is corrected by this amendment."
+
+**This statement is false.** It is now permanently archived at Zenodo DOI 10.5281/zenodo.20370234 as part of v7's release. The error chain is documented honestly here for the pre-registration record:
+
+- The v7 amendment was drafted in a chat session on 2026-05-24 afternoon.
+- During that session, the chat assistant asked the experimenter to verify the physical wiring of Jetson Pin 11. The experimenter, working from memory rather than physical inspection at the bench, answered that Pin 11 was connected to Saleae D3. This statement was the sole foundation for v7's Change 4 channel-mapping claim.
+- v7's Change 4 also documented `SALEAE_DIGITAL_CHANNELS = [0, 2, 3]` in `code/orchestrator/run_session.py` (set on 2026-05-24 by commit 995e8c9, "Enable D3 (GPIO line 112) capture in Saleae for wire-level latency") as evidence that the rewire had occurred. The code change was real; the corresponding physical change was not.
+- v7 was committed (29c3f00), tagged (`prereg-amendment-2026-05-24-v7`), and externally timestamped on Zenodo (DOI 20370234) before the experimenter independently verified the bench state.
+- Subsequent bench inspection on 2026-05-24 evening (PST) verified that Saleae D0 is connected to Jetson Pin 15 (sensor INT1) and Saleae D2 is connected to PCA9685 PWM. **Pin 11 was not connected to any Saleae channel at any time during 2026-05-24 prior to this amendment, nor during any captured session in this project's history.**
+- After bench verification, Pin 11 was physically connected to Saleae D1 to match `docs/pin-assignment.md`'s long-standing documentation (which v7 incorrectly described as "stale").
+
+### What was true in v7's Change 4
+
+The Saleae sample-rate correction in v7 Change 4 — raising `SALEAE_DIGITAL_SAMPLE_RATE` from 12,500,000 to 50,000,000 to comply with pre-reg §6.1 line 85 (≥ 50 MS/s) — is independent of the channel-mapping claim, was implemented in code at commit 29c3f00 as part of v7, and is **not retracted by this amendment**. It stands as the operational sample rate for v7.1 latency captures and forward.
+
+All other v7 changes (Change 1 window-length selection, Change 2 servo-burst trial protocol, Change 3 latency-measurement substance, Change 5 hypothesis priority, Change 6 operational gates) are independent of the channel-mapping claim and are **not retracted by this amendment**. They stand as the pre-registered protocol for the IEEE Sensors Letters submission.
+
+### Change
+
+This amendment corrects v7 Change 4's channel-mapping claim. The corrected statement of fact is:
+
+- Decision GPIO (Jetson Pin 11, gpiochip0 line 112) is wired to **Saleae D1**, matching `docs/pin-assignment.md` as it has stood throughout this project.
+- `SALEAE_DIGITAL_CHANNELS` in `code/orchestrator/run_session.py` is updated from `[0, 2, 3]` (set incorrectly by commit 995e8c9 in anticipation of a rewire that never occurred) to `[0, 1, 2]` to match the actual wiring.
+- The Saleae captures going forward record D0 (sensor INT1), D1 (decision GPIO), and D2 (PCA9685 PWM).
+
+### What is NOT changed
+
+- v7 Change 1 (window length w=25 for latency comparison). Unchanged.
+- v7 Change 2 (servo-driven burst protocol; 5s motion / 5s still; n=500 per condition × 4 conditions). Unchanged.
+- v7 Change 3 (latency measurement = D_int_rising → D_decision_rising; pure Saleae; sweep.log gates trials). Unchanged in substance. The decision-GPIO channel is now D1 (was incorrectly stated as D3 in v7's Change 3 references via Change 4's mapping); the measurement formula is the same.
+- v7 Change 4 sample-rate correction (50 MS/s). Unchanged.
+- v7 Change 5 (hypothesis priority H4 primary, H3 secondary, H2 secondary if power allows, H1 descriptive). Unchanged.
+- v7 Change 6 (eight operational gates before latency capture). Unchanged.
+- All prior amendments (v2, v3, v4, v5, v6.1). Unchanged.
+- `docs/pin-assignment.md`. Unchanged; it has been correct throughout.
+- `MOUNT_THRESHOLD_G = 0.065` per v5 Change 2 / v6.1. Unchanged.
+- Tree config `code/mlc_config/tree_w25.json` (committed as gate-7 fulfillment in commit 1a6b1cb). Unchanged.
+
+### Procedural lesson recorded in this amendment
+
+This is the second amendment in 24 hours (after v6.1) that retracts a same-day amendment. The pattern matches the procedural-debt failure mode documented in the 2026-05-23 lab notebook: *"derived artifacts are advisory; the repo is authoritative."* This amendment extends that lesson to include user-supplied physical-state statements: when a pre-registration claim depends on a hardware fact, the fact must be verified by physical bench inspection (tracing wires by hand) before the amendment is committed, tagged, or externally timestamped. Verbal or remembered descriptions of hardware state are not sufficient grounds for an authoritative claim. v7.1 is the cost of skipping that step in v7's drafting.
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-24-v7-1`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into this section.**
