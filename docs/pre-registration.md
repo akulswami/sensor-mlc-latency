@@ -775,9 +775,10 @@ that require pre-registration.
 ### External timestamp
 
 This amendment is committed to the public repository at
-github.com/akulswami/sensor-mlc-latency. The commit will be tagged as
-`prereg-amendment-2026-05-22`. The repository release will be mirrored
-to Zenodo with a new DOI distinct from the v2 (10.5281/zenodo.20042123)
-and v3 (10.5281/zenodo.20060848) DOIs. The new DOI will be inserted
-into this section after the Zenodo mirror is created and will be the
+github.com/akulswami/sensor-mlc-latency and the commit is tagged as
+`prereg-amendment-2026-05-22`. The repository release is mirrored
+to Zenodo at a new DOI distinct from the v2 (10.5281/zenodo.20042123)
+and v3 (10.5281/zenodo.20060848) DOIs. The new DOI is
+10.5281/zenodo.20358317 (https://doi.org/10.5281/zenodo.20358317).
+The DOI of the Zenodo release containing this amendment is the
 authoritative external timestamp.

@@ -24,6 +24,7 @@
 #include <linux/i2c-dev.h>
 #include <linux/i2c.h>
 #include <sys/ioctl.h>
+#include <sys/file.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -48,6 +49,8 @@
 #define REG_INT1_CTRL   0x0D
 #define REG_OUTX_L_A    0x28
 #define SENS_G_PER_LSB  (0.061e-3f)
+
+#define BUS_LOCK_PATH   "/tmp/lsm6dsox-bus.lock"
 
 /* ODR table: maps Hz to CTRL1_XL register value (ODR bits in 7:4,
  * range bits in 3:2). All entries use FS=00 (+/-2g). */
@@ -113,9 +116,42 @@ static int i2c_read_block(int fd, uint8_t reg, uint8_t *buf, size_t n) {
     return (ioctl(fd, I2C_RDWR, &xfer) < 0) ? -1 : 0;
 }
 
-static int configure_streaming(int i2c_fd, uint8_t ctrl1_xl_value) {
+static int bus_lock_open(void) {
+    /* Cross-process I2C bus coordination. mlc_poller may concurrently
+     * switch the sensor to embedded bank for MLC0_SRC reads; without
+     * mutual exclusion, our reads at OUTX_L_A would resolve in the
+     * wrong bank. flock() on a shared lockfile is the minimum-scope
+     * fix that keeps imu_logger's measurement behavior unchanged. */
+    int fd = open(BUS_LOCK_PATH, O_CREAT | O_RDWR, 0666);
+    if (fd < 0) {
+        fprintf(stderr, "open(%s): %s\n", BUS_LOCK_PATH, strerror(errno));
+    }
+    return fd;
+}
+static int bus_lock_acquire(int fd) {
+    while (flock(fd, LOCK_EX) < 0) {
+        if (errno == EINTR) continue;
+        return -1;
+    }
+    return 0;
+}
+static void bus_lock_release(int fd) {
+    (void)flock(fd, LOCK_UN);
+}
+
+static int configure_streaming(int i2c_fd, int lock_fd, uint8_t ctrl1_xl_value) {
     uint8_t scratch;
     uint8_t reg;
+
+    /* Hold the bus lock for the entire configure sequence. Without
+     * this, a concurrent mlc_poller bank-switch can cause our writes
+     * to CTRL3_C / CTRL1_XL / INT1_CTRL to land in the embedded bank,
+     * surfacing as 'sw_reset failed' or 'WHO_AM_I check failed'. */
+    if (bus_lock_acquire(lock_fd) < 0) {
+        fprintf(stderr, "configure_streaming: bus_lock_acquire failed: %s\n",
+                strerror(errno));
+        return -1;
+    }
 
     /* Drain any latched interrupt */
     reg = 0x1C;
@@ -126,6 +162,7 @@ static int configure_streaming(int i2c_fd, uint8_t ctrl1_xl_value) {
     /* SW_RESET */
     if (i2c_write_reg_retry(i2c_fd, REG_CTRL3_C, 0x01, 2) < 0) {
         fprintf(stderr, "sw_reset failed. Power-cycle sensor.\n");
+        bus_lock_release(lock_fd);
         return -1;
     }
     struct timespec ts1 = { .tv_sec = 0, .tv_nsec = 50 * 1000 * 1000 };
@@ -135,6 +172,7 @@ static int configure_streaming(int i2c_fd, uint8_t ctrl1_xl_value) {
     reg = 0x0F;
     if (write(i2c_fd, &reg, 1) != 1 || read(i2c_fd, &scratch, 1) != 1 || scratch != 0x6C) {
         fprintf(stderr, "WHO_AM_I check failed: 0x%02X\n", scratch);
+        bus_lock_release(lock_fd);
         return -1;
     }
 
@@ -149,11 +187,13 @@ static int configure_streaming(int i2c_fd, uint8_t ctrl1_xl_value) {
     for (size_t i = 0; i < sizeof(cfg)/sizeof(cfg[0]); ++i) {
         if (i2c_write_reg_retry(i2c_fd, cfg[i].reg, cfg[i].val, 2) < 0) {
             fprintf(stderr, "config write 0x%02X failed.\n", cfg[i].reg);
+            bus_lock_release(lock_fd);
             return -1;
         }
     }
     struct timespec ts2 = { .tv_sec = 0, .tv_nsec = 50 * 1000 * 1000 };
     nanosleep(&ts2, NULL);
+    bus_lock_release(lock_fd);
     return 0;
 }
 
@@ -212,6 +252,7 @@ int main(int argc, char **argv) {
 
     int rc = 1;
     int i2c_fd = -1;
+    int lock_fd = -1;
     struct gpiod_chip *chip = NULL;
     struct gpiod_line *int_line = NULL;
     FILE *fp = NULL;
@@ -233,7 +274,10 @@ int main(int argc, char **argv) {
 
     i2c_fd = i2c_open_and_select(I2C_DEVICE, LSM6DSOX_ADDR);
     if (i2c_fd < 0) { fprintf(stderr, "i2c open: %s\n", strerror(errno)); goto cleanup; }
-    if (configure_streaming(i2c_fd, ctrl1_xl) < 0) goto cleanup;
+    lock_fd = bus_lock_open();
+    if (lock_fd < 0) goto cleanup;
+
+    if (configure_streaming(i2c_fd, lock_fd, ctrl1_xl) < 0) goto cleanup;
     fprintf(stderr, "Sensor configured at %d Hz (CTRL1_XL=0x%02X). Logging to %s. Ctrl+C to stop.\n",
             odr_hz, ctrl1_xl, out_path);
     if (do_fflush) fprintf(stderr, "fflush after each sample: enabled.\n");
@@ -248,6 +292,7 @@ int main(int argc, char **argv) {
     }
 
     double t0 = now_s();
+    fprintf(stderr, "t0_monotonic_s = %.6f\n", t0);
     double t_next_progress = 2.0;  /* first progress print after 2 sec */
     uint64_t sample_count = 0;
 
@@ -265,7 +310,13 @@ int main(int argc, char **argv) {
         if (gpiod_line_event_read(int_line, &line_event) < 0) continue;
 
         uint8_t raw[6];
-        if (i2c_read_block(i2c_fd, REG_OUTX_L_A, raw, 6) < 0) continue;
+        if (bus_lock_acquire(lock_fd) < 0) {
+            fprintf(stderr, "bus_lock_acquire failed: %s\n", strerror(errno));
+            continue;
+        }
+        int read_rc = i2c_read_block(i2c_fd, REG_OUTX_L_A, raw, 6);
+        bus_lock_release(lock_fd);
+        if (read_rc < 0) continue;
 
         int16_t rx = (int16_t)((raw[1] << 8) | raw[0]);
         int16_t ry = (int16_t)((raw[3] << 8) | raw[2]);
@@ -296,6 +347,7 @@ cleanup:
     if (int_line) gpiod_line_release(int_line);
     if (chip)     gpiod_chip_close(chip);
     if (i2c_fd >= 0) close(i2c_fd);
+    if (lock_fd >= 0) close(lock_fd);
     if (fp) fclose(fp);
     return rc;
 }
