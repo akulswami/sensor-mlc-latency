@@ -87,6 +87,49 @@ MLC_POLL_HZ = 50
 MLC_POLLER_EXTRA_SEC = 3
 
 
+# --- v5 Change 2: mount-geometry pre/post-check constants ---
+# Pre-registered in docs/pre-registration.md "Amendment 2026-05-23"
+# (Zenodo DOI 10.5281/zenodo.20361496). Do NOT modify without amendment.
+
+MOUNT_CENTROID_X_G = -0.0116
+MOUNT_CENTROID_Y_G = -0.0754
+MOUNT_CENTROID_Z_G = -0.9664
+MOUNT_THRESHOLD_G = 0.065
+MOUNT_DRIFT_BOUND_G = 0.005
+MOUNT_PRECHECK_DURATION_SEC = 30
+
+def _euclidean_to_centroid(x_mean, y_mean, z_mean):
+    import math
+    dx = x_mean - MOUNT_CENTROID_X_G
+    dy = y_mean - MOUNT_CENTROID_Y_G
+    dz = z_mean - MOUNT_CENTROID_Z_G
+    return math.sqrt(dx*dx + dy*dy + dz*dz)
+
+def _accel_csv_means(csv_path):
+    import csv as _csv
+    sums = [0.0, 0.0, 0.0]
+    cnt = 0
+    with open(csv_path) as f:
+        r = _csv.reader(f)
+        try:
+            next(r)
+        except StopIteration:
+            raise RuntimeError(f"Accel CSV empty: {csv_path}")
+        for row in r:
+            if not row or len(row) < 4:
+                continue
+            try:
+                sums[0] += float(row[1])
+                sums[1] += float(row[2])
+                sums[2] += float(row[3])
+                cnt += 1
+            except ValueError:
+                continue
+    if cnt == 0:
+        raise RuntimeError(f"No data rows in accel CSV: {csv_path}")
+    return cnt, (sums[0]/cnt, sums[1]/cnt, sums[2]/cnt)
+
+
 # --- Helpers ---
 
 def verify_jetson_state_parity():
@@ -146,6 +189,41 @@ def parse_mlc_t_start(stderr_text):
     """Extract t_start_monotonic from mlc_poller stderr. Returns float or None."""
     m = _RE_T_START_MLC.search(stderr_text)
     return float(m.group(1)) if m else None
+
+
+# --- v5 Change 2: mount-check functions ---
+
+def run_mount_precheck(session_dir, jetson_session_dir, odr_hz):
+    precheck_local = session_dir / "mount_precheck.csv"
+    precheck_remote = f"{jetson_session_dir}/mount_precheck.csv"
+    ssh(f"mkdir -p {jetson_session_dir}")
+    print(f"\n[orchestrator] === v5 Mount-geometry pre-check ===")
+    print(f"[orchestrator] Centroid: X={MOUNT_CENTROID_X_G:+.4f} Y={MOUNT_CENTROID_Y_G:+.4f} Z={MOUNT_CENTROID_Z_G:+.4f} g")
+    attempts = 0
+    while True:
+        attempts += 1
+        print(f"\n[orchestrator] Pre-check attempt {attempts}...")
+        logger_cmd = f"sudo timeout {MOUNT_PRECHECK_DURATION_SEC} {JETSON_IMU_LOGGER} --odr {odr_hz} {precheck_remote}"
+        r = ssh(logger_cmd, check=False, capture=True)
+        if r.returncode not in (0, 124):
+            raise RuntimeError(f"imu_logger failed: {r.stderr}")
+        scp_from_jetson(precheck_remote, precheck_local)
+        n_rows, (x_mean, y_mean, z_mean) = _accel_csv_means(precheck_local)
+        d = _euclidean_to_centroid(x_mean, y_mean, z_mean)
+        print(f"[orchestrator] {attempts}: d={d:.4f}g X={x_mean:+.4f} Y={y_mean:+.4f} Z={z_mean:+.4f}")
+        if d >= MOUNT_THRESHOLD_G:
+            print(f"[orchestrator] PASS attempt {attempts}")
+            return {"attempts": attempts, "pass_d_g": d, "pass_means": (x_mean, y_mean, z_mean)}
+        print(f"[orchestrator] FAIL: d={d:.4f} < {MOUNT_THRESHOLD_G}. Re-mount and press Enter.")
+        input()
+
+def run_mount_postcheck(still_accel_path, pre_means):
+    n_rows, (xp, yp, zp) = _accel_csv_means(still_accel_path)
+    d_post = _euclidean_to_centroid(xp, yp, zp)
+    drift_max = max(abs(xp - pre_means[0]), abs(yp - pre_means[1]), abs(zp - pre_means[2]))
+    print(f"\n[orchestrator] === v5 Mount-geometry post-check ===")
+    print(f"[orchestrator] Post-still: d_post={d_post:.4f}g drift_max={drift_max:.4f}g")
+    return {"d_post_g": d_post, "drift_max_g": drift_max}
 
 
 def run_class_capture_parity(class_name, duration_sec, session_dir,
@@ -359,6 +437,7 @@ def main():
     # Pre-flight
     verify_jetson_state_parity()
     verify_saleae()
+    precheck_result = run_mount_precheck(session_dir, jetson_session_dir, args.odr)
 
     classes_to_run = ["still", "motion"] if args.class_name == "both" else [args.class_name]
 
@@ -373,9 +452,14 @@ def main():
         "pwm_max_ticks": PWM_MAX_TICKS,
         "mlc_config_header": args.mlc_config_header,
         "mlc_poll_hz": MLC_POLL_HZ,
+        "mount_precheck_attempts": precheck_result["attempts"],
+        "mount_precheck_pass_d_g": precheck_result["pass_d_g"],
+        "mount_postcheck_d_g": None,
+        "mount_postcheck_drift_max_g": None,
         "started_at": datetime.now().isoformat(),
         "classes": [],
     }
+    postcheck_failure = None
 
     for class_name in classes_to_run:
         result = run_class_capture_parity(
@@ -386,6 +470,13 @@ def main():
             odr_hz=args.odr,
         )
         session_metadata["classes"].append(result)
+        if class_name == "still":
+            postcheck = run_mount_postcheck(session_dir / "still" / "accel.csv", precheck_result["pass_means"])
+            session_metadata["mount_postcheck_d_g"] = postcheck["d_post_g"]
+            session_metadata["mount_postcheck_drift_max_g"] = postcheck["drift_max_g"]
+            if postcheck["d_post_g"] < MOUNT_THRESHOLD_G or postcheck["drift_max_g"] > MOUNT_DRIFT_BOUND_G:
+                postcheck_failure = "Mount post-check FAILED. Session invalidated."
+                break
 
     session_metadata["finished_at"] = datetime.now().isoformat()
 
@@ -394,6 +485,9 @@ def main():
         json.dump(session_metadata, f, indent=2)
     print(f"\n[orchestrator] Session complete. Metadata: {session_json_path}")
     print(f"[orchestrator] Files saved to {session_dir}")
+    if postcheck_failure:
+        print(f"[orchestrator] {postcheck_failure}")
+        raise RuntimeError(postcheck_failure)
 
 
 if __name__ == "__main__":
