@@ -1,0 +1,36 @@
+{
+  "session_date": "2026-05-24-S6",
+  "session_type": "parity",
+  "btest": false,
+  "duration_sec_per_class": 1200,
+  "odr_hz": 208,
+  "pwm_center_ticks": 307,
+  "pwm_min_ticks": 102,
+  "pwm_max_ticks": 511,
+  "mlc_config_header": "mlc_motion_w75.h",
+  "mlc_poll_hz": 50,
+  "started_at": "2026-05-23T23:24:05.661513",
+  "classes": [
+    {
+      "class": "still",
+      "duration_sec": 1200,
+      "csv_lines": 254913,
+      "silicon_raw_lines": 58573,
+      "started_at": "2026-05-23T23:44:16.940220",
+      "imu_t0_monotonic_s": 1392074.871717,
+      "mlc_t_start_monotonic_s": 1392074.23674,
+      "clock_offset_s": -0.6349769998341799
+    },
+    {
+      "class": "motion",
+      "duration_sec": 1200,
+      "csv_lines": 254898,
+      "silicon_raw_lines": 58637,
+      "started_at": "2026-05-24T00:04:43.496575",
+      "imu_t0_monotonic_s": 1393292.267184,
+      "mlc_t_start_monotonic_s": 1393291.140961,
+      "clock_offset_s": -1.1262229999992996
+    }
+  ],
+  "finished_at": "2026-05-24T00:04:43.496596"
+}
