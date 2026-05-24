@@ -1,0 +1,37 @@
+Section 9: Window Length Selection Gate (2026-05-24)
+
+Datasets:
+- S4-prime (w=75): 254,866 still accel + 254,866 motion accel (1200s each)
+- S5 (w=25): 254,857 still accel + 254,863 motion accel (1200s each)
+- S6 (w=200): 254,912 still accel + 254,898 motion accel (1200s each)
+
+MLC Classification Results (silicon_raw.csv):
+
+w=25 (S5):
+  Still: 58,578 samples → 58,578 class 0 (100.00%) + 0 class 4 (0.00%)
+  Motion: 58,647 samples → 48 class 0 (0.08%) + 58,599 class 4 (99.92%)
+  Total errors: 48 / 117,225 → Accuracy 99.959%
+
+w=75 (S4-prime):
+  Still: 58,571 samples → 58,129 class 0 (99.25%) + 442 class 4 (0.75%)
+  Motion: 58,629 samples → 58 class 0 (0.10%) + 58,571 class 4 (99.90%)
+  Total errors: 500 / 117,200 → Accuracy 99.572%
+
+w=200 (S6):
+  Still: 58,569 samples → 58,535 class 0 (99.94%) + 34 class 4 (0.06%)
+  Motion: 58,633 samples → 68 class 0 (0.12%) + 58,565 class 4 (99.88%)
+  Total errors: 102 / 117,202 → Accuracy 99.913%
+
+Gate Decision:
+- Minimum error count: w=25 (48 errors)
+- Ranking: w=25 > w=200 > w=75
+- Selected window: w=25 (75 samples @ 212 Hz ≈ 0.354 seconds)
+
+Justification:
+w=25 achieves perfect still classification (zero false positives) and near-perfect
+motion detection (99.92%). The w=75 window shows signs of overfitting to training
+data (0.75% false positives in still class), while w=200 trades w=25's precision
+for marginal robustness. Given the deployment priority is minimizing false alarms
+in still class (e.g., no spurious motion detection at rest), w=25 is optimal.
+
+Final model for paper: mlc_motion_w25.h
