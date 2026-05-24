@@ -340,7 +340,7 @@ def extract_tree(tree_text: str, feature_name_to_id: dict[str, int],
         r"([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)"  # threshold
         r"\s*:\s*"
         r"(\S+)"                  # class name
-        r"\s*\(\d+\)"             # (count)
+        r"\s*\(\d+(?:/\d+(?:\.\d+)?)?\)"  # (count) or (count/misclassified)
         r"\s*$"
     )
 
