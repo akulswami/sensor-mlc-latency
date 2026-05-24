@@ -1100,6 +1100,6 @@ github.com/akulswami/sensor-mlc-latency and the commit is tagged as
 `prereg-amendment-2026-05-23`. The repository release is mirrored to
 Zenodo at a new DOI distinct from the v2 (10.5281/zenodo.20042123),
 v3 (10.5281/zenodo.20060848), and v4 (10.5281/zenodo.20358317) DOIs.
-The new DOI is `<DOI TBD — to be filled in upon Zenodo mint, same calendar day as the commit>`.
+The new DOI is `10.5281/zenodo.20361496 (https://doi.org/10.5281/zenodo.20361496)`.
 The DOI of the Zenodo release containing this amendment is the
 authoritative external timestamp.
