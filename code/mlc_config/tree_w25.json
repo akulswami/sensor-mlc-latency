@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "window_length": 25,
+  "sensor_odr_hz": 208,
+  "mlc_odr_hz": 104,
+  "decimation_ratio": 2,
+  "filters": [
+    {
+      "id": 0,
+      "type": "iir1_hp",
+      "b1": 0.970669,
+      "b2": -0.970669,
+      "b3": 0.0,
+      "a2": -0.941339,
+      "a3": -0.0,
+      "gain": 1.0
+    }
+  ],
+  "features": [
+    {
+      "id": 0,
+      "type": "variance",
+      "input_filter_id": 0,
+      "estimator": "biased"
+    },
+    {
+      "id": 1,
+      "type": "peak_to_peak",
+      "input_filter_id": 0,
+      "estimator": "biased"
+    }
+  ],
+  "class_codes": {
+    "still": 0,
+    "motion": 4
+  },
+  "tree": [
+    {
+      "node_id": 0,
+      "feature_id": 1,
+      "threshold": 0.028564,
+      "comparison": "lte",
+      "left": 1,
+      "right": 2
+    },
+    {
+      "node_id": 1,
+      "leaf": true,
+      "class": 0
+    },
+    {
+      "node_id": 2,
+      "leaf": true,
+      "class": 4
+    }
+  ]
+}
