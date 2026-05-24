@@ -1170,7 +1170,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-24 (v7): Servo-driven burst protocol for latency trials; window-length selection; hypothesis priority; Saleae channel and sample-rate correction
 
-**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.[TBD — to be inserted same day per v5 Change 4 hard procedural gate].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20370234 (https://doi.org/10.5281/zenodo.20370234).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
