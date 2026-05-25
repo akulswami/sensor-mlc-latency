@@ -1331,3 +1331,115 @@ This is the second amendment in 24 hours (after v6.1) that retracts a same-day a
 ### External timestamp
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-24-v7-1`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into this section.**
+
+## Amendment 2026-05-24 (v7.2): Retract v7 Change 1 — w=25 window length, switch to w=75
+
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.[TBD — to be inserted same day per v5 Change 4 hard procedural gate].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+No pre-registered latency measurement runs have been executed under any version of this pre-registration. v7.2 corrects the window-length selection in v7 Change 1 before the latency experiment begins.
+
+The §9 parity gate evaluation performed on 2026-05-24 evening uses captured S7-prime data (`data/training/2026-05-24-S7-prime/`) and produces the §9 evidence stored at `data/processed/2026-05-24-S7-prime-section9-w75/`. Both directories are committed to the repository as supporting evidence for this amendment.
+
+The §9 parity gate result from 2026-05-23 (session 4: host 98.74% / silicon 99.79% / 1.05 pp gap, computed at w=75) is unaffected by this amendment and is reinforced by S7-prime's w=75 result (host 99.21% / silicon 98.74% / 0.47 pp gap).
+
+---
+
+### Reason for this correction
+
+v7 Change 1 selected window length w=25 for the latency experiment on the basis of accuracy data reported in `code/analysis/section9_results.txt` (committed 2026-05-24, before v7 was drafted). That file reported per-session silicon accuracies:
+
+> w=25 (S5): 99.959%
+> w=75 (S4-prime): 99.572%
+> w=200 (S6): 99.913%
+
+and selected w=25 as the highest-accuracy window length.
+
+**Those numbers are real measurements, but their window-length attribution is false.** The S4-prime, S5, and S6 captures all ran with the same `w=75` silicon configuration, not three different window lengths. The per-session accuracy differences are session-noise (mount variation, environmental events, fan vibration), not window-length effects.
+
+The misattribution was first discovered today via silicon trace timing analysis: each session's first silicon class-4 transition on the motion arm falls in the 1.0–1.5 s range after `mlc_poller` start, consistent with w=75 silicon's ~720 ms window completion time. A w=25 silicon would produce first transitions at ~0.3–0.5 s. All three sessions show w=75 timing. The trace timing finding was strong enough that v7.1 noted it, but v7.1 did not retract v7's window-length selection because the §9 gate had not yet been operationally re-evaluated.
+
+Tonight (2026-05-24 evening, PST), the §9 gate was re-evaluated with a deliberate goal of testing w=25 on freshly-flashed w=25 silicon:
+
+1. Silicon was manually flashed via `sudo code/jetson/session4/mlc_setup_w25`. Post-flash WHO_AM_I = 0x6c. Sanity capture (10 s, rig at rest) confirmed silicon was in w=25 state: 475/486 class-0 polls (97.7% still), no startup transient, threshold behavior consistent with w=25's documented 0.029 g.
+
+2. The orchestrator (`code/orchestrator/run_session_parity.py`) was invoked with `--mlc-config-header mlc_motion_w25.h` and `--session-date 2026-05-24-S7-prime`. The capture ran for 1200 s still + 1200 s motion. `session.json` recorded `mlc_config_header: mlc_motion_w25.h`. The motion arm produced unambiguous mechanical motion: A_X std = 0.144 g, silicon class-4 distribution at 99.76%, sweep.log shows the servo commanded between MIN (102) and MAX (511) ticks with 1 s period throughout.
+
+3. The §9 gate was computed via `replay_parity` with `tree_w25.json`, `silicon_align.py`, and `compare_decisions.py`. Per-arm and combined accuracy:
+
+> Host still: 5087/5097 = 99.804%
+> Host motion: 3299/5097 = 64.724%
+> Silicon still: 4975/5097 = 97.606%
+> Silicon motion: 5088/5097 = 99.823%
+> Combined host: 82.264%
+> Combined silicon: 98.715%
+> Gap: 16.45 pp
+
+These numbers superficially indicate that w=25 fails §9 (host < 90%, gap > 2 pp), and that the failure mode is host pipeline missing motion windows (35.3% disagreement on motion arm).
+
+**However:** further investigation revealed that the orchestrator's `mlc_setup` invocation does **not** dispatch by `--mlc-config-header`. The orchestrator hardcodes the binary path (line 73 of `code/orchestrator/run_session.py`):
+
+```python
+JETSON_MLC_SETUP = f"{JETSON_REPO}/code/jetson/session4/mlc_setup"
+```
+
+`mlc_setup` is the original w=75 build (sha256 `59f9b3c0…`, built 2026-05-23 09:38). The w=25 and w=200 variants (`mlc_setup_w25`, `mlc_setup_w200`) exist as separate binaries but are not referenced by the orchestrator. **The orchestrator's "Flashing MLC..." step at the start of each arm silently overwrote our manual w=25 flash with the w=75 configuration.** S7-prime's silicon was therefore w=75, not w=25, despite session.json's metadata claim.
+
+Confirmation: the §9 evaluation was re-run with `tree_w75.json` against the same S7-prime captured data, yielding per-arm and combined accuracy:
+
+> Host still: 1694/1699 = 99.706%
+> Host motion: 1677/1699 = 98.705%
+> Silicon still: 1659/1699 = 97.646%
+> Silicon motion: 1696/1699 = 99.823%
+> Combined host: 99.205%
+> Combined silicon: 98.735%
+> Gap: 0.471 pp
+
+§9 gate evaluated at w=75 on S7-prime data: **PASS** (all three criteria cleared).
+
+The "w=25 fails §9" result from the first analysis was an artifact of comparing a w=25 host pipeline against w=75 silicon — a window-length mismatch, not a w=25 viability test. **A genuine w=25 §9 evaluation has not been performed in this project's history**, because the orchestrator has been flashing w=75 silicon for every session regardless of the `--mlc-config-header` argument passed to it.
+
+### What is true about w=25 on this rig
+
+After all of today's analysis, the empirical knowledge about w=25 on this rig is:
+
+- **w=25 silicon classifier** (per `mlc_setup_w25` build and `mlc_motion_w25.h`): briefly tested in a 10-second sanity capture at rest. Showed 97.7% class-0 distribution on a still rig, consistent with documented threshold behavior. Has never been tested under motion-arm conditions, has never had §9 evaluated, has never run a 1200-second capture. The chip-side classifier may work fine, may not — we do not know.
+
+- **w=25 host classifier** (per `tree_w25.json` and `replay_parity`): can be run on any accel.csv. On S7-prime's accel data (which corresponds to w=75 silicon behavior, but the accel signal is the same regardless of silicon flash), it produces 99.8% accuracy on still arm and 64.7% accuracy on motion arm. The motion-arm under-detection is consistent with the host pipeline's filter not settling fast enough on 240 ms windows to track the silicon's threshold; or it may be an implementation-specific artifact of `replay_parity.c`'s filter math. We do not know.
+
+Neither finding is sufficient to commit w=25 to the latency experiment.
+
+### Change
+
+This amendment retracts v7 Change 1's selection of w=25 as the latency-experiment window length. The corrected selection is:
+
+- **Latency experiment runs at w=75 only.** w=75 silicon has cleared the §9 gate in two independent captures (session 4 on 2026-05-23, and S7-prime on 2026-05-24).
+- The latency-experiment trial structure (servo-burst protocol from v7 Change 2) is **unchanged in substance** but its per-cycle expected window count adjusts from ~20 windows per 5 s motion burst at w=25 to ~7 windows per 5 s motion burst at w=75. Statistical power calculations from v7 are not affected because v7 specified n=500 trials per condition (not n=10000 windows), and the trial count is independent of window length.
+- All other v7 changes (Change 2 servo-burst protocol, Change 3 latency measurement substance, Change 5 hypothesis priority, Change 6 operational gates) are **unaffected** and stand.
+- v7 Change 4's sample-rate raise (50 MS/s) stands.
+- v7.1's correction (decision GPIO on Saleae D1, channel list `[0, 1, 2]`) stands.
+
+### What is NOT changed by this amendment
+
+- v7 Change 2 (servo-driven burst protocol). Unchanged.
+- v7 Change 3 (wire-level latency measurement: D_int_rising → D_decision_rising). Unchanged.
+- v7 Change 4 sample-rate (50 MS/s). Unchanged.
+- v7 Change 5 (hypothesis priority H4 primary, H3 secondary, H2 secondary if power allows, H1 descriptive). Unchanged.
+- v7 Change 6 (eight operational gates). The gates themselves stand. Gate 7 (§9 evaluation) is **completed for w=75** by this amendment's referenced S7-prime work; the other seven gates remain to be implemented.
+- v6.1's retraction of v6 mount-threshold change. Unchanged.
+- v7.1's correction of v7 Change 4 channel-mapping claim. Unchanged.
+- `MOUNT_THRESHOLD_G = 0.065` per v5 Change 2 / v6.1. Unchanged.
+- All prior amendments (v2 through v7.1). Unchanged.
+
+### Procedural lessons recorded in this amendment
+
+Two findings of project-wide procedural significance:
+
+**Finding 1: Orchestrator's `mlc_setup` invocation does not respect `--mlc-config-header`.** This is now known to be the root cause of the `section9_results.txt` misattribution that drove v7's window-length selection. The argument `--mlc-config-header` is *metadata-only*: it controls what string gets written into `session.json` but does not change which `mlc_setup` binary runs. Going forward, no `session.json` `mlc_config_header` field can be trusted as a statement about which silicon configuration was actually deployed; the only reliable evidence of silicon configuration is the silicon's behavior in the captured data (first-transition timing, threshold response). This bug must be fixed before any future capture work in which different window lengths or different MLC configurations are intended; the fix is to either (a) make the orchestrator dispatch by `--mlc-config-header` to the matching `mlc_setup_wN` binary, or (b) require an explicit `--mlc-setup-path` CLI argument, or (c) have the orchestrator read back the actual MLC configuration from silicon after flash and write the verified value to session.json. Filed for v7 Change 6 operational-gate work or a separate cleanup commit before any further window-length variation is attempted.
+
+**Finding 2: Confirmation of v7.1's broader procedural lesson.** v7.1 stated that when a pre-registration claim depends on a hardware fact, the fact must be verified by physical bench inspection. v7.2 extends this lesson: when a pre-registration claim depends on a *deployment* fact (which binary runs, which configuration is on silicon, which channel is captured), the fact must be verified by behavioral observation of the deployed system, not merely by metadata that records what was *requested* of the system. Repo metadata and CLI argument values are advisory; the captured data is authoritative.
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-24-v7-2`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into this section.**

@@ -1,0 +1,3 @@
+Loaded: window=75  sensor_odr=208  mlc_odr=104  decim=2  filters=1  features=2  nodes=3  still=0  motion=4
+inferred units: g (first sample |a|=0.983)
+Done: 254850 raw samples, 127425 MLC samples (decim 2), 1699 windows, 1699 rows emitted, last_t=1199.894s

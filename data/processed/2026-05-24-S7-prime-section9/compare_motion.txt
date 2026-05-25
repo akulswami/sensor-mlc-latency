@@ -1,0 +1,8 @@
+host: 5097 windows from /home/akulswami/sensor-mlc-latency/data/processed/2026-05-24-S7-prime-section9/host_motion.csv
+silicon: 5097 windows from /home/akulswami/sensor-mlc-latency/data/processed/2026-05-24-S7-prime-section9/silicon_motion.csv
+
+FAIL: 1803/5097 classes disagree (64.626% agreement).
+
+First divergence at row index 4 (window_idx_host=4, window_idx_silicon=4):
+  host: t=1.173993s  var=4.389716e-05  p2p=2.614812e-02  class=0
+  silicon: t=1.173993s  var=0.000000e+00  p2p=0.000000e+00  class=4
