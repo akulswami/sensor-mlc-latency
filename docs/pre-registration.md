@@ -1334,7 +1334,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-24 (v7.2): Retract v7 Change 1 — w=25 window length, switch to w=75
 
-**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.[TBD — to be inserted same day per v5 Change 4 hard procedural gate].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20371440.
 
 **Data collected under prior protocol that is affected by this amendment:**
 
