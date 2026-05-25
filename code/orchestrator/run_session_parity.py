@@ -72,6 +72,13 @@ from run_session import (
 
 JETSON_MLC_POLLER = f"{JETSON_REPO}/code/jetson/session4/mlc_poller"
 
+# v7 Change 6 item 1 (Saleae sync-edge): the sync_edge binary fires a single
+# rising edge on Pin 11 (gpiochip0 line 112, Saleae D1) and prints the
+# CLOCK_MONOTONIC timestamp. Called once per session (first arm only) to
+# align Saleae capture clock with Jetson monotonic clock. See
+# code/jetson/sync_edge/sync_edge.c and docs/measurement-protocol.md.
+JETSON_SYNC_EDGE = f"{JETSON_REPO}/code/jetson/sync_edge/sync_edge"
+
 # Maps --mlc-config-header (e.g. "mlc_motion_w25.h") to the matching
 # binary path under code/jetson/session4/mlc_setup_wN. Binaries must
 # already be built; this orchestrator does not compile them.
@@ -297,12 +304,20 @@ def parse_mlc_t_start(stderr_text):
 # --- v5 Change 2: mount-check functions ---
 
 def run_class_capture_parity(class_name, duration_sec, session_dir,
-                             jetson_session_dir, odr_hz, mlc_setup_path):
+                             jetson_session_dir, odr_hz, mlc_setup_path,
+                             is_first_arm=False):
     """Run a single class capture with parallel MLC silicon capture.
 
     mlc_setup_path is the derived mlc_setup_wN binary path per v7.2's
     dispatch logic. Threaded through from main() via
     jetson_mlc_setup_path(args.mlc_config_header).
+
+    is_first_arm (v7 Change 6 item 1): when True, fire a single sync edge
+    on Pin 11 / line 112 / Saleae D1 between Saleae arming and the start
+    of mlc_poller. The Jetson monotonic-clock timestamp of the toggle is
+    returned in the result dict as 'saleae_sync_jetson_monotonic_ns' so
+    main() can record it at session-metadata top level. Per-session sync;
+    motion arm (is_first_arm=False) does NOT fire a second sync edge.
     """
     from saleae import automation
 
@@ -348,6 +363,41 @@ def run_class_capture_parity(class_name, duration_sec, session_dir,
             device_configuration=device_config,
             capture_configuration=capture_config,
         )
+
+        # 3a. v7 Change 6 item 1: fire sync edge on Pin 11/D1 once per
+        #     session, before any measurement binary starts. The sync
+        #     edge produces the FIRST D1 rising edge of the session's
+        #     Saleae trace; subsequent D1 edges are measurement edges
+        #     from host_pipeline_parity or latency_test_mlc_w75.
+        #     Per-class sync edges are NOT fired (would re-toggle Pin 11
+        #     which is owned by the host/silicon measurement binary
+        #     during their arm). The motion arm relies on the
+        #     post-analysis aligning Saleae and Jetson clocks via the
+        #     still-arm sync edge plus its own arm-start timestamp.
+        saleae_sync_jetson_monotonic_ns = None
+        if is_first_arm:
+            print("[orchestrator] Firing session-start sync edge on Pin 11...")
+            # Brief settle so Saleae is unambiguously armed before the edge.
+            time.sleep(0.5)
+            r = ssh(f"sudo {JETSON_SYNC_EDGE}", capture=True, check=False)
+            if r.returncode != 0:
+                raise RuntimeError(
+                    f"sync_edge failed (exit {r.returncode}). "
+                    f"stdout: {r.stdout!r} stderr: {r.stderr!r}"
+                )
+            try:
+                saleae_sync_jetson_monotonic_ns = int(r.stdout.strip())
+            except ValueError:
+                raise RuntimeError(
+                    f"sync_edge did not print a parseable monotonic_ns: "
+                    f"stdout={r.stdout!r}"
+                )
+            print(f"[orchestrator]   sync_edge fired at Jetson "
+                  f"monotonic_ns = {saleae_sync_jetson_monotonic_ns}")
+            # Let line 112 settle low (sync_edge holds high 10ms then
+            # drives low) before the measurement binary starts and
+            # takes ownership of the line.
+            time.sleep(0.1)
 
         # 4. Start mlc_poller in background. Output silicon_raw.csv on
         #    Jetson side; we'll SCP back at the end. stderr goes to a
@@ -470,6 +520,10 @@ def run_class_capture_parity(class_name, duration_sec, session_dir,
         "imu_t0_monotonic_s": imu_t0,
         "mlc_t_start_monotonic_s": mlc_t_start,
         "clock_offset_s": mlc_t_start - imu_t0,
+        # v7 Change 6 item 1: only set for the first arm of the session;
+        # None on subsequent arms. main() lifts this to session-metadata
+        # top level after the loop.
+        "saleae_sync_jetson_monotonic_ns": saleae_sync_jetson_monotonic_ns,
     }
 
 
@@ -541,7 +595,7 @@ def main():
         "classes": [],
     }
 
-    for class_name in classes_to_run:
+    for i, class_name in enumerate(classes_to_run):
         result = run_class_capture_parity(
             class_name=class_name,
             duration_sec=duration,
@@ -549,7 +603,14 @@ def main():
             jetson_session_dir=jetson_session_dir,
             odr_hz=args.odr,
             mlc_setup_path=mlc_setup_path,
+            is_first_arm=(i == 0),
         )
+        # v7 Change 6 item 1: lift sync timestamp to session-metadata top
+        # level; it's a session-wide field, recorded once per session.
+        if i == 0 and result.get("saleae_sync_jetson_monotonic_ns") is not None:
+            session_metadata["saleae_sync_jetson_monotonic_ns"] = (
+                result["saleae_sync_jetson_monotonic_ns"]
+            )
         session_metadata["classes"].append(result)
     session_metadata["finished_at"] = datetime.now().isoformat()
 
