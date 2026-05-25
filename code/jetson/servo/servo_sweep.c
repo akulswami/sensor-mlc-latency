@@ -35,10 +35,18 @@
 
 #define I2C_DEV       "/dev/i2c-1"
 #define PCA9685_ADDR  0x60
+#define REG_MODE1      0x00
+#define REG_PRE_SCALE  0xFE
 #define REG_LED0_ON_L  0x06
 #define REG_LED0_ON_H  0x07
 #define REG_LED0_OFF_L 0x08
 #define REG_LED0_OFF_H 0x09
+
+/* PRE_SCALE for 50 Hz PWM (standard servo rate):
+ *   PRE_SCALE = round(25 MHz / (4096 * 50 Hz)) - 1 = 121 = 0x79
+ * PCA9685 chip POR default is 0x1E (~200 Hz, too fast for servos),
+ * so we MUST configure PRE_SCALE explicitly on every invocation. */
+#define PRESCALE_50HZ  0x79
 
 #define DEFAULT_MIN_TICKS    102   /* 0x0066 */
 #define DEFAULT_MAX_TICKS    511   /* 0x01FF */
@@ -85,6 +93,70 @@ static void sleep_ms_interruptible(unsigned int ms) {
     while (nanosleep(&req, &req) == -1 && !g_stop) {
         /* interrupted; nanosleep updated req with remaining time */
     }
+}
+
+/* Initialize PCA9685 for 50 Hz servo PWM.
+ *
+ * On chip power-up, PCA9685 is in SLEEP mode (MODE1 bit 4 = 1) and
+ * PRE_SCALE is at its POR default (0x1E, giving ~200 Hz PWM, far too
+ * fast for servos). This function performs the documented init
+ * sequence per the PCA9685 datasheet:
+ *
+ *   1. Put chip in SLEEP mode (required to write PRE_SCALE)
+ *   2. Write PRE_SCALE for 50 Hz PWM
+ *   3. Wake chip (clear SLEEP), enable register auto-increment (AI)
+ *   4. Wait for oscillator to stabilize, then set RESTART bit
+ *
+ * Idempotent: running this on an already-configured chip just
+ * re-applies the same state (cost is ~5 I2C writes, <10 ms).
+ *
+ * Without this init, all PWM register writes silently produce no
+ * output because the chip is asleep. Sessions S1-S6 depended on
+ * undocumented prior PCA9685 state; S7 (2026-05-24) failed because
+ * power had been cycled and the chip reverted to POR defaults.
+ */
+static int pca9685_init(int fd) {
+    uint8_t buf[2];
+
+    /* Step 1: sleep the chip */
+    buf[0] = REG_MODE1;
+    buf[1] = 0x10;  /* SLEEP=1, AI=0, ALLCALL=0, RESTART=0 */
+    if (write(fd, buf, 2) != 2) {
+        perror("pca9685_init: sleep");
+        return -1;
+    }
+
+    /* Step 2: write PRE_SCALE for 50 Hz */
+    buf[0] = REG_PRE_SCALE;
+    buf[1] = PRESCALE_50HZ;
+    if (write(fd, buf, 2) != 2) {
+        perror("pca9685_init: prescale");
+        return -1;
+    }
+
+    /* Step 3: wake the chip, enable auto-increment */
+    buf[0] = REG_MODE1;
+    buf[1] = 0x20;  /* SLEEP=0, AI=1, ALLCALL=0, RESTART=0 */
+    if (write(fd, buf, 2) != 2) {
+        perror("pca9685_init: wake");
+        return -1;
+    }
+
+    /* Step 4: wait 500 us for internal oscillator to stabilize,
+     * then set RESTART bit to apply settings cleanly. */
+    struct timespec stab = { .tv_sec = 0, .tv_nsec = 500000L };
+    nanosleep(&stab, NULL);
+
+    buf[0] = REG_MODE1;
+    buf[1] = 0xA0;  /* RESTART=1, SLEEP=0, AI=1 */
+    if (write(fd, buf, 2) != 2) {
+        perror("pca9685_init: restart");
+        return -1;
+    }
+
+    fprintf(stderr, "pca9685_init: configured for 50 Hz (PRE_SCALE=0x%02x)\n",
+            PRESCALE_50HZ);
+    return 0;
 }
 
 static void usage(const char *prog) {
@@ -179,6 +251,17 @@ int main(int argc, char **argv) {
     if (ioctl(fd, I2C_SLAVE, PCA9685_ADDR) < 0) {
         perror("ioctl I2C_SLAVE");
         close(fd);
+        return 1;
+    }
+
+    /* Initialize PCA9685 to 50 Hz PWM. POR state is SLEEP=1 with
+     * PRE_SCALE=0x1E (~200 Hz), neither of which can drive a servo.
+     * This init is the missing dependency that caused S7 (2026-05-24)
+     * to capture a "motion" arm with no physical motion. */
+    if (pca9685_init(fd) < 0) {
+        fprintf(stderr, "pca9685_init failed\n");
+        close(fd);
+        if (log != stdout) fclose(log);
         return 1;
     }
 
