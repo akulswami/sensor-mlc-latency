@@ -1443,3 +1443,150 @@ Two findings of project-wide procedural significance:
 ### External timestamp
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-24-v7-2`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into this section.**
+
+## Amendment 2026-05-25 (v7.3): D2-based motion-window gating; servo_sweep burst-mode operationalization; sweep.log retired from gating
+
+**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+No pre-registered latency measurement runs have been executed under any version of this pre-registration. v7.3 corrects two implementation-vs-specification mismatches in v7 Change 2 before the latency experiment begins.
+
+The §9 parity gate evaluations (session 4 at w=75, S7-prime at w=75) are unaffected — they do not depend on Saleae-side trial gating.
+
+The smoke-test capture `data/training/2026-05-25-sync-btest/` (btest, sync-edge validation) and the empirical-characterization capture `data/training/2026-05-25-burst-btest/` (btest, used to derive the D2 classification thresholds pinned in this amendment) are unaffected because they are btests, not pre-registered measurements.
+
+---
+
+### Reason for this correction
+
+Two divergences between v7 Change 2 (as written) and the actual orchestrator implementation came to light on 2026-05-25 while implementing Gate 6 (the replacement latency extractor):
+
+**(1) sweep.log clock discrepancy.** v7 Change 2 states:
+
+> The same monotonic clock anchors `sweep.log` (verified by orchestrator implementation in `run_session_parity.py`).
+
+This statement is false. `code/jetson/servo/servo_sweep.c` writes sweep.log timestamps using `CLOCK_REALTIME`, not `CLOCK_MONOTONIC`. The file header confirms this:
+timestamp = CLOCK_REALTIME microseconds at host i2c_write call
+
+The "verified" claim in v7 Change 2 was incorrect. sweep.log timestamps cannot be aligned to the monotonic-clock-anchored Saleae sync offset that v7 Change 2 (and v7.2) build the alignment plan around. The two clocks (REALTIME and MONOTONIC) can drift relative to each other via NTP step adjustments and were never operationally aligned during any prior capture.
+
+**(2) Stimulus protocol implementation gap.** v7 Change 2 specifies:
+
+> Burst structure: within a continuous capture session, the servo alternates 5 seconds of motion (full-amplitude sweep at the rate specified in `docs/training-data-spec.md`) with 5 seconds of still (servo held at center position). One 10-second cycle = two state changes (still→motion at second 0, motion→still at second 5).
+
+The orchestrator invokes `servo_sweep` with `--mode continuous --period-ms 1000`, which runs the servo continuously alternating min/max every ~1 second for the full duration of the motion arm. There are no 5-second still periods within the motion arm. The actual stimulus pattern is therefore "1s motion / 1s motion / ..." rather than the pre-registered "5s motion / 5s still / 5s motion / 5s still / ...".
+
+`servo_sweep` does support a `--mode burst` (with `--motion-ms`, `--still-ms`, `--burst-period-ms` parameters); the orchestrator simply was not invoking it. This is a stimulus-protocol implementation gap, not a code-missing gap, and is fixable by updating the orchestrator's invocation.
+
+---
+
+### Change 1: Replace sweep.log-based trial gating with D2-based motion-window gating
+
+v7 Change 2's "Trial gating from sweep.log" paragraph is retracted. The replacement gating logic is **entirely Saleae-side** with no cross-clock alignment:
+
+#### D2 per-PWM-cycle classification
+
+The Saleae captures the PCA9685 channel-0 PWM signal continuously on **D2** at 50 MS/s. The PCA9685 is configured for 50 Hz PWM (PRE_SCALE = 0x79). Each PWM cycle is 20 ms; each cycle contains one rising edge followed by one falling edge.
+
+**For each PWM cycle, the extractor computes:**
+- `pulse_width_us = (t_falling - t_rising) × 1e6`, where `t_rising` is the cycle's rising edge time and `t_falling` is the immediately subsequent falling edge time in the Saleae trace.
+
+**Classification:**
+- `still` if `|pulse_width_us - PWM_CENTER_PULSE_US| ≤ PWM_MOTION_THRESHOLD_US`
+- `motion` otherwise.
+
+**Pinned values, empirically derived 2026-05-25** on the rig from `data/training/2026-05-25-burst-btest/motion/saleae.sal` (the empirical-characterization btest captured under the proposed protocol):
+
+- `PWM_CENTER_PULSE_US = 1380` (median pulse width when servo is commanded to 307 ticks / center)
+- `PWM_MOTION_THRESHOLD_US = 500`
+
+The btest produced a perfectly trimodal pulse-width distribution: 458 µs (motion endpoint at 102 ticks, n=327), 1380 µs (center at 307 ticks, n=1091), 2297 µs (motion endpoint at 511 ticks, n=490). All cycles fall into one of these three peaks with zero counts in the gaps between them. The 500 µs threshold sits unambiguously between the still peak (deviation = 0 µs) and the motion peaks (deviation ≈ 920 µs); any threshold in [200, 800] gives identical classification. 500 µs is chosen as the midpoint for robustness margin.
+
+#### Stimulus-transition detection
+
+Walking through PWM cycles in chronological order, a **stimulus transition** is defined as a transition from one classification to the other in consecutive PWM cycles:
+
+- **still → motion transition** at the time of the first motion-classified cycle following a run of still-classified cycles.
+- **motion → still transition** at the time of the first still-classified cycle following a run of motion-classified cycles.
+
+Single-cycle classification glitches (one motion cycle surrounded by still cycles, or vice versa) are theoretically possible but were not observed in the btest. To be robust, the extractor uses a "confirmed-by-N-cycles" rule: a transition is confirmed only after **N = 3 consecutive cycles** of the new classification. This 60 ms confirmation latency is negligible compared to the 5-second burst duration and well below the §6.2 100 ms latency exclusion threshold.
+
+#### Trial assignment per stimulus transition
+
+For each stimulus transition at Saleae time `T_stim`, the associated trial is the **next D1 rising edge** whose paired D0 rising edge (the most recent D0 edge before that D1 edge, within ≤100 ms per §6.2) occurs after `T_stim`. There is exactly one trial per stimulus transition; subsequent D1 edges before the next stimulus transition are not counted as trials.
+
+This trial-assignment logic is functionally identical to v7 Change 2's, except `T_stim` is now derived from D2 (Saleae-side) rather than sweep.log (CLOCK_REALTIME, Jetson-side).
+
+#### Expected stimulus-transition count
+
+For a 1200 s motion arm under the pre-registered 5s motion / 5s still burst protocol: 120 cycles × 2 transitions = **240 stimulus transitions per motion arm**.
+
+A motion arm with full pre-registered duration produces 240 candidate trials. The 4 conditions × 3 sessions each at 240 trials/session = 2880 candidate trials. After exclusion (§6.2, §11), the per-condition trial count of 500 (per §3) is expected to be achieved comfortably.
+
+### Change 2: sweep.log retained for audit, not for gating
+
+sweep.log continues to be written by `servo_sweep` and is retained in capture directories. It is now an **auxiliary record** for human audit (e.g., verifying that the commanded number of stimulus transitions matches the count detected on D2). The CLOCK_REALTIME timestamps in sweep.log do NOT enter the latency measurement and do NOT gate trials.
+
+`servo_sweep.c` is **not modified** by this amendment. Its CLOCK_REALTIME timestamps are acceptable for the auxiliary-audit purpose. Future amendments may switch `servo_sweep` to CLOCK_MONOTONIC if needed; this amendment does not require it.
+
+### Change 3: Orchestrator update to invoke burst mode
+
+`code/orchestrator/run_session_parity.py` is updated to invoke `servo_sweep --mode burst --motion-ms 5000 --still-ms 5000 --burst-period-ms 1000 --duration {duration_sec}` for the motion arm. The previous `--mode continuous --period-ms 1000` invocation is retired.
+
+`servo_sweep`'s existing `--mode burst` (already implemented in the binary as of 2026-05-21) provides the pre-registered stimulus structure: alternating 5-second motion bursts (with 1-second internal sweep period producing 4-5 endpoint commands per burst) with 5-second still periods.
+
+`servo_sweep`'s `--mode continuous` is retained in the binary for bring-up and diagnostic use; it is not used for pre-registered captures.
+
+### Change 4: §10 documentation update
+
+`docs/measurement-protocol.md` (the Gate 2 measurement-protocol document) is updated to reflect:
+
+- The PCA9685 50 Hz PWM specification and its pulse-width-to-ticks mapping
+- The D2 motion-window classification: `PWM_CENTER_PULSE_US = 1380`, `PWM_MOTION_THRESHOLD_US = 500`, confirmation-by-3-consecutive-cycles
+- The retirement of sweep.log from the latency analysis path
+- The new orchestrator invocation of `servo_sweep --mode burst`
+
+These updates are committed alongside the v7.3 amendment in the same commit.
+
+### Effect on v7 Change 6 operational gates
+
+Gate 6 (replacement latency extractor at `code/analysis/extract_latency_v7.py`) inherits the D2-gating logic from this amendment. The Gate 6 unit tests on synthetic Saleae traces shall include test cases for:
+
+- D2 per-PWM-cycle classification at the pinned thresholds (still pulse = 1380 µs, motion endpoints = 458 or 2297 µs)
+- Stimulus-transition detection (still→motion and motion→still) with the 3-consecutive-cycle confirmation rule
+- Trial assignment per stimulus transition (exactly one D0→D1 pair per transition; subsequent D1 edges not counted)
+- §6.2 100 ms exclusion (D0→D1 pairs with gap > 100 ms excluded)
+- §11 overlapping-edge exclusion (≥2 D0 rising edges before the next D1 rising edge → excluded)
+- Sync-edge handling: the first D1 rising edge of the still arm is the synchronization edge (per Gate 1) and is not a measurement edge.
+
+### What is NOT changed
+
+- §1 Research question. Unchanged.
+- §2 Hypotheses H1–H4 formulations and null/alternative structure. Unchanged.
+- §3 Design: two-factor (pipeline × stress) fully-crossed, n=500 per condition × 4 conditions = 2,000 trials. Unchanged.
+- §6.1 Latency measurement definition: per-trial latency = (D1 rising) − (D0 rising), both from the Saleae capture. Unchanged.
+- §6.2 100 ms exclusion. Unchanged.
+- §6.3 Effect-size definitions (10 µs / 50 µs thresholds for H4). Unchanged.
+- §7 Randomization and blocking. Unchanged.
+- §8 Stress condition specifications. Unchanged.
+- §9 Accuracy parity gate (≥90% both pipelines, ≤2 pp gap). Unchanged.
+- §11 Exclusion criteria. Unchanged in substance; criterion 4 (overlapping events) is implemented via the D2-gating semantics specified in Change 1.
+- §12 Statistical analysis plan. Unchanged.
+- v7 Change 1 (w=75 window length per v7.2 retraction). Unchanged.
+- v7 Change 4 Saleae channel mapping (D1 per v7.1 correction). Unchanged.
+- v7 Change 5 hypothesis priority. Unchanged.
+- v7 Change 6 operational gates (this amendment refines Gate 6 details only; Gates 1, 2, 3, 5, 7, 8 are completed independently of this amendment).
+- The 5s motion / 5s still burst structure itself (specified in v7 Change 2). Unchanged; only the implementation path is updated (orchestrator now invokes burst mode).
+
+### Stop condition
+
+If the D2 motion-window classification, when applied to the first pre-registered capture under the new orchestrator invocation, fails to recover the commanded number of stimulus transitions within ±5%, the latency experiment is halted until the discrepancy is investigated. This stop condition is verifiable mechanically by comparing D2-detected stimulus transitions against the sweep.log record of `MOTION_PHASE_START` and `STILL_PHASE_START` events: the counts should match exactly.
+
+For a 1200 s motion arm, the expected count is 240 transitions; tolerance ±5% = ±12, so accepted range is [228, 252] D2-detected transitions per motion arm.
+
+The empirical btest (`2026-05-25-burst-btest`, 30 s motion arm) detected 6 transitions, matching the 6 commanded transitions exactly (3 MOTION_PHASE_START + 3 STILL_PHASE_START in sweep.log). Detection error: 0%.
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-25-v7-3`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**

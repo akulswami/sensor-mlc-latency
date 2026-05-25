@@ -383,6 +383,44 @@ warning path (see `host_pipeline_parity.c:201-207` for the warning).
 It is not a deployment configuration; do not use this fixture's
 values as operational parameters.
 
+## 11. D2 motion-window gating (v7.3)
+
+Per pre-reg v7.3 (2026-05-25, Zenodo DOI [TBD-DOI-INSERT]), motion-window
+gating for trial assignment uses the Saleae D2 channel (PCA9685 channel-0
+PWM) rather than sweep.log. The classification is per-PWM-cycle:
+
+- PWM frequency: 50 Hz (PCA9685 PRE_SCALE = 0x79). Cycle period: 20 ms.
+- Each cycle contains one rising edge followed by one falling edge.
+- For each cycle, `pulse_width_us = (t_falling - t_rising) × 1e6`.
+- Classification:
+  - `still` if `|pulse_width_us - 1380| ≤ 500`
+  - `motion` otherwise.
+- Stimulus transition: confirmed after 3 consecutive cycles of new
+  classification (60 ms confirmation latency, negligible vs. the 5s burst
+  duration).
+
+Pinned values from empirical btest 2026-05-25 (`2026-05-25-burst-btest/`):
+- `PWM_CENTER_PULSE_US = 1380` (servo center at 307 ticks)
+- `PWM_MOTION_THRESHOLD_US = 500` (midpoint of empirical [200, 800] valid range)
+- `N_CONFIRM_CYCLES = 3`
+
+These constants are pinned in `code/analysis/extract_latency_v7.py` (Gate 6).
+
+### Stimulus structure (v7.3 burst mode)
+
+`servo_sweep` is invoked in burst mode for the motion arm:
+servo_sweep --mode burst --motion-ms 5000 --still-ms 5000 --burst-period-ms 1000 --duration <duration_sec>
+
+This produces alternating 5-second motion bursts (with 1-second internal
+sweep period during motion) and 5-second still periods. Each 10-second
+cycle produces 2 stimulus transitions (still→motion + motion→still).
+
+### sweep.log
+
+`sweep.log` continues to be written by `servo_sweep` with CLOCK_REALTIME
+timestamps. It is **auxiliary audit material only** as of v7.3; it does
+NOT enter the latency measurement and does NOT gate trials.
+
 ## 10. Cross-references
 
 | Topic | Authoritative location |

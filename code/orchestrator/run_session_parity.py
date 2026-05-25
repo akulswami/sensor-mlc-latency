@@ -419,10 +419,12 @@ def run_class_capture_parity(class_name, duration_sec, session_dir,
         # 5. If motion: start servo_sweep in background.
         sweep_remote_log = f"{class_remote}/sweep.log"
         if is_motion:
-            print("[orchestrator] Starting servo_sweep on Jetson...")
+            print("[orchestrator] Starting servo_sweep on Jetson (BURST mode, 5s/5s)...")
             sweep_cmd = (
                 f"sudo nohup {JETSON_SERVO_SWEEP} "
-                f"--mode continuous --duration {duration_sec} --period-ms 1000 "
+                f"--mode burst "
+                f"--motion-ms 5000 --still-ms 5000 --burst-period-ms 1000 "
+                f"--duration {duration_sec} "
                 f"--min-ticks {PWM_MIN_TICKS} --max-ticks {PWM_MAX_TICKS} "
                 f"--log {sweep_remote_log} "
                 f"> /dev/null 2>&1 &"
