@@ -1590,3 +1590,100 @@ The empirical btest (`2026-05-25-burst-btest`, 30 s motion arm) detected 6 trans
 ### External timestamp
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-25-v7-3`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
+
+## Amendment 2026-05-25 (v7.4): §11 criterion 4 reinterpretation for the windowed task; sync-edge channel formalization
+
+**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+No pre-registered latency measurement runs have been executed under any version of this pre-registration. v7.4 addresses two leftover items before the latency experiment begins:
+
+(1) §11 criterion 4 ("a second INT edge occurs before the decision GPIO edge") was written when the project's classification task was tap detection, where D0 fires once per detected tap. The original criterion applies correctly to the v7 MLC silicon pipeline (which retains "D0 fires once per binary-state transition" semantics via the MLC interrupt). It does NOT apply correctly to the v7 host pipeline, which streams DRDY at the full 208 Hz sensor ODR, producing hundreds of D0 edges per stimulus window and excluding 100% of trials under the literal text.
+
+(2) v7 Change 6 item 1 said the sync edge could go on "channel TBD by implementer; D0 or D3 acceptable." Gate 1's empirical implementation (committed 2026-05-25) used channel D1 (gpiochip0 line 112, Pin 11) after multiple attempts to route a sync edge to D3 produced no visible edge on Saleae despite verified gpiod toggles. v7.4 formalizes this channel choice as part of the pre-registered protocol.
+
+Both items came to light on 2026-05-25 while implementing and smoke-testing Gate 4 (`run_stress_block.py`). Smoke-test data (`data/training/latency-experiment/block-001-mlc-idle-btest/`, `block-002-host-idle-btest/`) was captured under btest mode and is not part of any pre-registered measurement.
+
+---
+
+### Reason for this correction
+
+**(1) §11 criterion 4 mismatch with the windowed task — host pipeline only.** The original criterion 4 reads:
+
+> A second INT edge occurs before the decision GPIO edge. (Overlapping events; ambiguous attribution.)
+
+This was correct for tap detection: D0 ("tap detected" interrupt) fires once per detected tap, D1 ("host decision GPIO") fires once per classification. A second D0 before the matching D1 indicates two taps occurred too closely for the host to disambiguate — a real ambiguous-attribution case.
+
+For the v7 motion-vs-still task:
+
+- **The MLC silicon pipeline** (`latency_test_mlc.c`) retains the "one D0 per binary-state transition" semantics. It explicitly disables DRDY routing and routes only the MLC interrupt to INT1; D0 fires once per MLC binary-state change. The original criterion 4 ("a second D0 before D1") applies cleanly and catches the real ambiguity case: the MLC fired twice before the host could read MLC0_SRC for the first event. This criterion is preserved unchanged for the MLC pipeline.
+
+- **The host pipeline** (`host_pipeline_parity.c`) routes DRDY at full sensor ODR (208 Hz). The smoke-test capture observed D0 = 6571 edges in a 30 s block. Between any two consecutive stimulus transitions there are hundreds of D0 edges. The original criterion 4 would exclude every host-pipeline trial. The ambiguity it was designed to catch (input event attributed to wrong decision) manifests differently for the host pipeline: as **multiple D1 rising edges within a single stimulus window**, indicating the classifier oscillated and produced multiple binary-state changes for one stimulus.
+
+The pipelines therefore need different operationalizations of criterion 4, reflecting their structurally different D0 semantics.
+
+**(2) Sync-edge channel formalization.** v7 Change 6 item 1 left the sync-edge channel "TBD by implementer." During Gate 1 implementation on 2026-05-25, multiple attempts to fire a sync edge on a GPIO wired to Saleae D3 (using `gpiochip0` line 9, `gpiochip1` line 9, and several other candidates that the Jetson.GPIO library claimed map to Pin 16) produced no visible edge on the Saleae trace. The root cause was not identified. The known-working `gpiochip0` line 112 (physical Pin 11, wired to Saleae D1) was substituted instead. This pin is the same one the host and silicon measurement binaries use for the decision-GPIO output; the sync edge fires once at session start BEFORE the measurement binary takes ownership of the line, so there is no GPIO-contention conflict. The first D1 rising edge of the session's still arm is the sync edge; subsequent edges are measurement edges.
+
+This channel choice is operationally correct and is now part of the pre-registered protocol. The session.json field name `saleae_sync_jetson_monotonic_ns` (introduced in Gate 1) is also formalized as the canonical name for the synchronization timestamp.
+
+---
+
+### Change 1: Restate §11 criterion 4 asymmetrically by pipeline
+
+§11 criterion 4 is replaced with the following:
+
+> **4. (MLC silicon pipeline)** A second D0 rising edge occurs in the window `(t_stim, t_d1]` for a given trial, where `t_stim` is the stimulus transition on D2 and `t_d1` is the trial's D1 rising edge. (Original tap-detection semantics, preserved for the MLC pipeline because `latency_test_mlc.c` disables DRDY streaming and routes only the MLC interrupt to D0; a second D0 before D1 indicates the MLC fired twice before host could read the first MLC0_SRC.)
+>
+> **4. (Both pipelines, additionally)** More than one D1 rising edge occurs in the stimulus window `(t_stim, t_next_stim]`, where `t_next_stim` is the time of the next stimulus transition on D2 (or end-of-capture). This indicates the classifier produced multiple binary-state changes within a single stimulus — ambiguous attribution.
+
+For both pipelines, the trial-pairing procedure within each stimulus window `(t_stim, t_next_stim]` is:
+
+1. Count D1 rising edges in the window. If 0 → criterion 1 exclusion ("no_d1_in_window"). If exactly 1 → that D1 is the trial's decision edge. If ≥2 → criterion 4 exclusion ("multiple_d1_in_window").
+2. Given exactly 1 D1, the paired D0 is the most recent D0 rising edge in `(t_stim, t_d1]`.
+3. For the MLC pipeline only: if `(t_stim, t_d1]` contains ≥2 D0 rising edges → criterion 4 exclusion ("multiple_d0_before_d1").
+4. Latency = `t_d1 - t_d0`. If gap > 100 ms → criterion 1 exclusion (per §6.2).
+
+This restatement preserves the original criterion 4's intent — to exclude trials where attribution between input event and decision is ambiguous — while operationalizing it correctly for each pipeline's actual D0/D1 semantics.
+
+### Change 2: Formalize the sync-edge channel as D1 / gpiochip0 line 112 / Pin 11
+
+v7 Change 6 item 1 is amended: "channel TBD by implementer; D0 or D3 acceptable" is replaced by:
+
+> The sync edge fires on `gpiochip0` line 112 (Jetson Pin 11), wired to Saleae channel **D1**. This is the same physical line driven by `host_pipeline_parity.c` and `latency_test_mlc_w75` for their decision-GPIO output. The sync edge fires **before** the measurement binary takes ownership of the line, so there is no GPIO-contention conflict. The first D1 rising edge of the still arm of a session is the sync edge; subsequent D1 rising edges within that arm are measurement edges. The motion arm of a session does not fire a sync edge (per-session sync, not per-arm).
+
+The session.json schema field `saleae_sync_jetson_monotonic_ns` (uint64 nanoseconds, populated only for the still arm) is canonical. Earlier informal references to `saleae_sync_offset_s` (in v7 Change 2) are superseded.
+
+### Change 3: extract_latency_v7.py is updated
+
+`code/analysis/extract_latency_v7.py` is updated to implement the restated §11 criterion 4. The extractor takes a new `--pipeline {host,mlc}` argument and applies the appropriate criterion 4 logic per pipeline.
+
+The empirical smoke-test data (`block-001-mlc-idle-btest`, `block-002-host-idle-btest`) is reprocessed under the new logic. Empirical results:
+
+- **Block-001 (MLC pipeline, idle, 30s)**: 5/6 trials included. The newly excluded trial is correctly flagged as `multiple_d1_in_window`; the MLC classifier oscillated within one motion-burst window, producing multiple binary-state transitions for a single stimulus. The 5 remaining trials have median latency 569 µs (min 508, max 646).
+- **Block-002 (host pipeline, idle, 30s)**: 5/6 trials included (was 0/6 under the old logic). The recovery from 0% to 83.3% inclusion validates the asymmetric criterion 4 fix. The 5 included trials have median latency 370 µs (min 326, max 384). The 1 excluded trial is correctly flagged as `multiple_d1_in_window` — the host classifier oscillated three times within the same motion-burst window in which the MLC also oscillated.
+
+The 1/6 exclusion rate at btest scale (~16.7%) exceeds the §11 10% cap. At the full pre-registered campaign scale (50 trials/block × 10 blocks/condition = 500 trials/condition), this oscillation phenomenon must either occur much less frequently or be investigated for cause. **This is documented as a known risk going into the pre-registered measurement campaign.** If the rate at full scale exceeds 10% in any condition, §11's overall exclusion-rate clause requires disclosure and investigation.
+
+### What is NOT changed
+
+- §1 Research question. Unchanged.
+- §2 Hypotheses H1–H4. Unchanged.
+- §3 Design: 2,000 trials total, n=500 per condition × 4 conditions. Unchanged.
+- §6.1 Latency definition. Unchanged in substance.
+- §6.2 100 ms exclusion. Unchanged.
+- §6.3 Effect-size definitions. Unchanged.
+- §7 Randomization and blocking. Unchanged.
+- §8 Stress condition. Unchanged.
+- §9 Accuracy parity gate. Unchanged.
+- §11 criteria 1, 2, 3. Unchanged. Only criterion 4 is restated.
+- §12 Statistical analysis plan. Unchanged.
+- All prior amendments v2 through v7.3. Unchanged.
+
+### Stop condition
+
+If the restated criterion 4 produces an exclusion rate exceeding the per-condition 10% cap (per §11's overall exclusion-rate clause), the cause is investigated and disclosed per §11. The 10% headroom must hold for both pipelines independently after the pre-registered campaign runs.
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-25-v7-4`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**

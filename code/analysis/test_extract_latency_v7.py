@@ -219,16 +219,16 @@ def test_trial_pairing_simple():
     ] + [
         Edge(t_s=t, channel=1, direction="rising") for t in d1_risings
     ]
-    trials = assign_trials(edges, transitions, is_first_arm=False)
+    trials = assign_trials(edges, transitions, is_first_arm=False, pipeline="mlc")
     assert len(trials) == 2
     # First trial (still→motion) should pair D0=0.105 with D1=0.106
     t0 = trials[0]
     assert t0.included, f"first trial should be included; reason: {t0.exclusion_reason}"
     assert abs(t0.latency_us - 1000.0) < 1.0, f"expected ~1000us, got {t0.latency_us}"
-    # Second trial has no D0/D1 events → no_d1_after_stim
+    # Second trial has no D1 events in its stimulus window → no_d1_in_window (v7.4)
     t1 = trials[1]
     assert not t1.included
-    assert t1.exclusion_reason == "no_d1_after_stim"
+    assert t1.exclusion_reason == "no_d1_in_window"
 
 
 def test_trial_exclusion_overlapping_d0():
@@ -243,7 +243,7 @@ def test_trial_exclusion_overlapping_d0():
     ] + [
         Edge(t_s=t, channel=1, direction="rising") for t in d1_risings
     ]
-    trials = assign_trials(edges, transitions, is_first_arm=False)
+    trials = assign_trials(edges, transitions, is_first_arm=False, pipeline="mlc")
     t0 = trials[0]
     assert not t0.included
     assert t0.exclusion_reason == "multiple_d0_before_d1"
@@ -261,7 +261,7 @@ def test_trial_exclusion_latency_exceeds_100ms():
     ] + [
         Edge(t_s=t, channel=1, direction="rising") for t in d1_risings
     ]
-    trials = assign_trials(edges, transitions, is_first_arm=False)
+    trials = assign_trials(edges, transitions, is_first_arm=False, pipeline="mlc")
     t0 = trials[0]
     assert not t0.included
     assert t0.exclusion_reason == "latency_exceeds_100ms"
@@ -283,7 +283,7 @@ def test_trial_pairing_sync_edge_skipped():
         Edge(t_s=t, channel=1, direction="rising") for t in d1_risings
     ]
     # With is_first_arm=True, sync edge at 0.001 should be skipped
-    trials = assign_trials(edges, transitions, is_first_arm=True)
+    trials = assign_trials(edges, transitions, is_first_arm=True, pipeline="mlc")
     assert len(trials) == 1
     t0 = trials[0]
     assert t0.included, f"reason: {t0.exclusion_reason}"
@@ -304,7 +304,7 @@ def test_trial_pairing_no_sync_skip_when_not_first_arm():
         Edge(t_s=t, channel=1, direction="rising") for t in d1_risings
     ]
     # Without sync skip, the next D1 after t_stim=0.1 is 0.106
-    trials = assign_trials(edges, transitions, is_first_arm=False)
+    trials = assign_trials(edges, transitions, is_first_arm=False, pipeline="mlc")
     assert len(trials) == 1
     t0 = trials[0]
     assert t0.included
@@ -318,7 +318,7 @@ def test_csv_roundtrip_via_synthetic_file():
     d1_risings = [0.106]
     csv_path = write_synthetic_csv(d0_risings, d1_risings, d2)
     try:
-        trials = extract_trials_from_csv(csv_path, is_first_arm=False)
+        trials = extract_trials_from_csv(csv_path, is_first_arm=False, pipeline="mlc")
         assert len(trials) == 2
         assert trials[0].included
         assert abs(trials[0].latency_us - 1000.0) < 1.0
@@ -332,9 +332,101 @@ def test_real_burst_btest_data():
     if not csv_path.exists():
         print(f"  SKIP (no btest data at {csv_path})")
         return
-    trials = extract_trials_from_csv(csv_path, is_first_arm=False)
+    trials = extract_trials_from_csv(csv_path, is_first_arm=False, pipeline="mlc")
     assert len(trials) == 6, f"expected 6 transitions, got {len(trials)}"
     # All excluded because no D1 measurement edges in the btest
+
+
+
+
+# ---------------------------------------------------------------------------
+# v7.4: pipeline-aware criterion 4
+# ---------------------------------------------------------------------------
+
+
+def test_host_pipeline_with_streaming_d0_no_false_exclusion():
+    """Host pipeline: D0 streams at sensor ODR; many D0s per stimulus is normal.
+    Under MLC semantics, this trial would be excluded as multiple_d0_before_d1.
+    Under host semantics (v7.4), no exclusion."""
+    d2 = make_d2_trace([1380.0] * 5 + [2297.0] * 5 + [1380.0] * 5)
+    # Simulate host pipeline: D0 fires every ~5ms (208 Hz)
+    d0_risings = [0.105 + i * 0.005 for i in range(20)]  # 20 D0s after stim 0
+    d1_risings = [0.150]  # one D1 per stimulus, well within window
+    cycles = detect_pwm_cycles(d2)
+    transitions = detect_stimulus_transitions(cycles)
+    edges = d2 + [
+        Edge(t_s=t, channel=0, direction="rising") for t in d0_risings
+    ] + [
+        Edge(t_s=t, channel=1, direction="rising") for t in d1_risings
+    ]
+    # MLC pipeline: would exclude as multiple_d0_before_d1
+    trials_mlc = assign_trials(edges, transitions, pipeline="mlc")
+    assert trials_mlc[0].exclusion_reason == "multiple_d0_before_d1", (
+        f"MLC pipeline should exclude streaming D0; reason: {trials_mlc[0].exclusion_reason}"
+    )
+    # Host pipeline: should include (paired with most recent D0)
+    trials_host = assign_trials(edges, transitions, pipeline="host")
+    assert trials_host[0].included, (
+        f"Host pipeline should include; reason: {trials_host[0].exclusion_reason}"
+    )
+    # Paired D0 should be the most recent one before D1=0.150
+    most_recent_d0 = max(t for t in d0_risings if t <= 0.150)
+    expected_latency_us = (0.150 - most_recent_d0) * 1e6
+    assert abs(trials_host[0].latency_us - expected_latency_us) < 1.0
+
+
+def test_multiple_d1_in_window_excluded_both_pipelines():
+    """If the classifier oscillates and produces multiple D1 within one stimulus,
+    the trial is excluded under both pipeline semantics."""
+    # 5 still + 5 motion + 5 still = 2 stimulus transitions
+    d2 = make_d2_trace([1380.0] * 5 + [2297.0] * 5 + [1380.0] * 5)
+    # First stimulus at t=0.1, next at t=0.2. Put 3 D1 in (0.1, 0.2].
+    d0_risings = [0.105]
+    d1_risings = [0.110, 0.140, 0.170]
+    cycles = detect_pwm_cycles(d2)
+    transitions = detect_stimulus_transitions(cycles)
+    edges = d2 + [
+        Edge(t_s=t, channel=0, direction="rising") for t in d0_risings
+    ] + [
+        Edge(t_s=t, channel=1, direction="rising") for t in d1_risings
+    ]
+
+    for pipeline in ["host", "mlc"]:
+        trials = assign_trials(edges, transitions, pipeline=pipeline)
+        assert trials[0].exclusion_reason == "multiple_d1_in_window", (
+            f"pipeline={pipeline}: expected multiple_d1_in_window, "
+            f"got {trials[0].exclusion_reason}"
+        )
+
+
+def test_no_d1_in_window_excluded():
+    """If no D1 fires in a stimulus window, exclude with no_d1_in_window."""
+    d2 = make_d2_trace([1380.0] * 5 + [2297.0] * 5 + [1380.0] * 5)
+    d0_risings = [0.105]
+    d1_risings = []  # no D1 at all
+    cycles = detect_pwm_cycles(d2)
+    transitions = detect_stimulus_transitions(cycles)
+    edges = d2 + [
+        Edge(t_s=t, channel=0, direction="rising") for t in d0_risings
+    ] + [
+        Edge(t_s=t, channel=1, direction="rising") for t in d1_risings
+    ]
+    trials = assign_trials(edges, transitions, pipeline="host")
+    assert all(not t.included for t in trials)
+    for t in trials:
+        assert t.exclusion_reason == "no_d1_in_window", (
+            f"expected no_d1_in_window, got {t.exclusion_reason}"
+        )
+
+
+def test_invalid_pipeline_argument():
+    """assign_trials with invalid pipeline arg should raise."""
+    try:
+        assign_trials([], [], pipeline="invalid")
+        assert False, "Should have raised ValueError"
+    except ValueError:
+        pass
+
 
 
 # ---------------------------------------------------------------------------

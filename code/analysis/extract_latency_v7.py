@@ -247,17 +247,31 @@ def assign_trials(
     edges: List[Edge],
     transitions: List[StimulusTransition],
     is_first_arm: bool = False,
+    pipeline: str = "host",
 ) -> List[TrialRecord]:
-    """For each stimulus transition, find the next D0 → D1 pair and emit a trial.
+    """For each stimulus transition, find the trial's D0/D1 pair and emit a TrialRecord.
 
-    Exclusion rules applied per trial:
-      - §6.2: D0→D1 gap > 100 ms → excluded
-      - §11: ≥2 D0 rising edges occur between this D0 and the next D1 → excluded (ambiguous)
+    Per pre-reg v7.4: trial-pairing within a stimulus window (t_stim, t_next_stim]:
+      1. Count D1 rising edges in the window.
+         - 0 -> §11 criterion 1 exclusion ("no_d1_in_window")
+         - >=2 -> §11 criterion 4 (host) exclusion ("multiple_d1_in_window")
+         - exactly 1 -> proceed
+      2. Pair D1 with most recent D0 in (t_stim, t_d1].
+         - For MLC pipeline: if >=2 D0s in that range, §11 criterion 4 (MLC)
+           exclusion ("multiple_d0_before_d1")
+         - For host pipeline: D0 streams at sensor ODR; multiple D0s are
+           normal and expected, not an exclusion.
+      3. Compute latency = t_d1 - t_d0; if > 100 ms, §6.2 exclusion.
 
-    Sync-edge handling: if is_first_arm, the first D1 rising edge in the
+    Sync-edge handling: if is_first_arm=True, the first D1 rising edge in the
     entire trace is the session sync edge (Gate 1) and is treated as
     not-a-measurement-edge. It is consumed and skipped before trial pairing.
+
+    pipeline ('host' or 'mlc') controls the criterion 4 behavior per v7.4.
     """
+    if pipeline not in ("host", "mlc"):
+        raise ValueError(f"pipeline must be 'host' or 'mlc', got {pipeline!r}")
+
     d0_risings = sorted(
         [e.t_s for e in edges if e.channel == 0 and e.direction == "rising"]
     )
@@ -271,17 +285,23 @@ def assign_trials(
 
     trials: List[TrialRecord] = []
 
+    # Determine the window for each stimulus transition: (t_stim, t_next_stim].
+    # The last stimulus transition's window extends to end-of-capture (use
+    # the latest edge in the trace as the implicit end).
+    all_edge_times = [e.t_s for e in edges]
+    capture_end_s = max(all_edge_times) if all_edge_times else 0.0
+
     for trial_id, trans in enumerate(transitions):
         t_stim = trans.t_s
+        if trial_id + 1 < len(transitions):
+            t_next_stim = transitions[trial_id + 1].t_s
+        else:
+            t_next_stim = capture_end_s
 
-        # Find the next D1 rising edge after t_stim
-        next_d1: Optional[float] = None
-        for d1_t in d1_risings:
-            if d1_t > t_stim:
-                next_d1 = d1_t
-                break
+        # Count D1 rising edges in (t_stim, t_next_stim]
+        d1_in_window = [t for t in d1_risings if t_stim < t <= t_next_stim]
 
-        if next_d1 is None:
+        if len(d1_in_window) == 0:
             trials.append(TrialRecord(
                 trial_id=trial_id,
                 stimulus_type=trans.transition_type,
@@ -290,42 +310,63 @@ def assign_trials(
                 t_d1_s=None,
                 latency_us=None,
                 included=False,
-                exclusion_reason="no_d1_after_stim",
+                exclusion_reason="no_d1_in_window",
             ))
             continue
 
-        # Find the most recent D0 rising edge before next_d1 and after t_stim
-        # (paired D0 is the most recent D0 edge before the D1, per §6.2)
-        d0_candidates = [t for t in d0_risings if t_stim < t <= next_d1]
-        if not d0_candidates:
+        if len(d1_in_window) >= 2:
+            # §11 criterion 4 for host pipeline (and applies to MLC too;
+            # the classifier oscillation case is real for both).
             trials.append(TrialRecord(
                 trial_id=trial_id,
                 stimulus_type=trans.transition_type,
                 t_stim_s=t_stim,
                 t_d0_s=None,
-                t_d1_s=next_d1,
+                t_d1_s=d1_in_window[0],
+                latency_us=None,
+                included=False,
+                exclusion_reason="multiple_d1_in_window",
+            ))
+            continue
+
+        # Exactly one D1 in the window
+        t_d1 = d1_in_window[0]
+
+        # Find paired D0 = most recent D0 in (t_stim, t_d1]
+        d0_in_pair_range = [t for t in d0_risings if t_stim < t <= t_d1]
+
+        if not d0_in_pair_range:
+            trials.append(TrialRecord(
+                trial_id=trial_id,
+                stimulus_type=trans.transition_type,
+                t_stim_s=t_stim,
+                t_d0_s=None,
+                t_d1_s=t_d1,
                 latency_us=None,
                 included=False,
                 exclusion_reason="no_d0_between_stim_and_d1",
             ))
             continue
 
-        # §11: if >= 2 D0 rising edges before this D1, ambiguous
-        if len(d0_candidates) >= 2:
+        # For MLC pipeline only: §11 criterion 4 — multiple D0 before D1 is
+        # ambiguous (the MLC fired twice before the host could read MLC0_SRC).
+        # For host pipeline: D0 streams at sensor ODR; multiple D0s in this
+        # range are normal and not an exclusion.
+        if pipeline == "mlc" and len(d0_in_pair_range) >= 2:
             trials.append(TrialRecord(
                 trial_id=trial_id,
                 stimulus_type=trans.transition_type,
                 t_stim_s=t_stim,
-                t_d0_s=d0_candidates[-1],
-                t_d1_s=next_d1,
+                t_d0_s=d0_in_pair_range[-1],
+                t_d1_s=t_d1,
                 latency_us=None,
                 included=False,
                 exclusion_reason="multiple_d0_before_d1",
             ))
             continue
 
-        d0_t = d0_candidates[-1]
-        latency_us = (next_d1 - d0_t) * 1e6
+        t_d0 = d0_in_pair_range[-1]
+        latency_us = (t_d1 - t_d0) * 1e6
 
         # §6.2: gap > 100 ms exclusion
         if latency_us > MAX_PAIR_GAP_US:
@@ -333,8 +374,8 @@ def assign_trials(
                 trial_id=trial_id,
                 stimulus_type=trans.transition_type,
                 t_stim_s=t_stim,
-                t_d0_s=d0_t,
-                t_d1_s=next_d1,
+                t_d0_s=t_d0,
+                t_d1_s=t_d1,
                 latency_us=latency_us,
                 included=False,
                 exclusion_reason="latency_exceeds_100ms",
@@ -345,8 +386,8 @@ def assign_trials(
             trial_id=trial_id,
             stimulus_type=trans.transition_type,
             t_stim_s=t_stim,
-            t_d0_s=d0_t,
-            t_d1_s=next_d1,
+            t_d0_s=t_d0,
+            t_d1_s=t_d1,
             latency_us=latency_us,
             included=True,
             exclusion_reason="",
@@ -362,12 +403,18 @@ def assign_trials(
 def extract_trials_from_csv(
     csv_path: Path,
     is_first_arm: bool = False,
+    pipeline: str = "host",
 ) -> List[TrialRecord]:
-    """Top-level: CSV → list of TrialRecords."""
+    """Top-level: CSV → list of TrialRecords.
+
+    pipeline ('host' or 'mlc') controls the §11 criterion 4 behavior per
+    pre-reg v7.4. See assign_trials for details.
+    """
     edges = parse_saleae_csv(csv_path)
     cycles = detect_pwm_cycles(edges)
     transitions = detect_stimulus_transitions(cycles)
-    trials = assign_trials(edges, transitions, is_first_arm=is_first_arm)
+    trials = assign_trials(edges, transitions,
+                            is_first_arm=is_first_arm, pipeline=pipeline)
     return trials
 
 
@@ -392,12 +439,17 @@ def main():
     parser = argparse.ArgumentParser(description="Extract per-trial latencies from a Saleae CSV.")
     parser.add_argument("--csv", required=True, type=Path, help="Path to Saleae digital CSV.")
     parser.add_argument("--out", required=True, type=Path, help="Output CSV path.")
+    parser.add_argument("--pipeline", choices=["host", "mlc"], required=True,
+                        help="Which pipeline produced the trace. Controls the "
+                             "§11 criterion 4 behavior per pre-reg v7.4.")
     parser.add_argument("--is-first-arm", action="store_true",
                         help="If set, the first D1 rising edge is treated as the session sync edge "
                              "(skipped as a measurement edge). Use for the still arm of v7 captures.")
     args = parser.parse_args()
 
-    trials = extract_trials_from_csv(args.csv, is_first_arm=args.is_first_arm)
+    trials = extract_trials_from_csv(
+        args.csv, is_first_arm=args.is_first_arm, pipeline=args.pipeline
+    )
     write_trials_csv(trials, args.out)
 
     n_total = len(trials)
