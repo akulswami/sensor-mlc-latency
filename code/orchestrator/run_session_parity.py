@@ -70,13 +70,38 @@ from run_session import (
 
 # --- New paths for session 4 ---
 
-JETSON_MLC_SETUP  = f"{JETSON_REPO}/code/jetson/session4/mlc_setup"
 JETSON_MLC_POLLER = f"{JETSON_REPO}/code/jetson/session4/mlc_poller"
 
-# Default MLC config header to flash. The header must already be built
-# into mlc_setup (via -DMLC_CONFIG_HEADER at compile time); this string
-# is recorded in session.json for provenance, not used at runtime.
-DEFAULT_MLC_CONFIG_HEADER = "mlc_motion_w75.h"
+# Maps --mlc-config-header (e.g. "mlc_motion_w25.h") to the matching
+# binary path under code/jetson/session4/mlc_setup_wN. Binaries must
+# already be built; this orchestrator does not compile them.
+#
+# Naming convention: mlc_motion_wN.h <-> mlc_setup_wN. Established
+# 2026-05-24 in v7.2 as part of the orchestrator-bug fix that retired
+# the previous hardcoded JETSON_MLC_SETUP constant. See Zenodo DOI
+# 10.5281/zenodo.20371440 for the v7.2 amendment.
+_MLC_HEADER_RE = re.compile(r"^mlc_motion_w(\d+)\.h$")
+
+
+def jetson_mlc_setup_path(mlc_config_header):
+    """Derive the mlc_setup_wN binary path from --mlc-config-header.
+
+    Raises ValueError if the header name doesn't match the expected
+    pattern. The caller is responsible for checking the binary exists
+    on the Jetson before invoking it.
+    """
+    m = _MLC_HEADER_RE.match(mlc_config_header)
+    if not m:
+        raise ValueError(
+            f"--mlc-config-header {mlc_config_header!r} doesn't match the "
+            f"expected pattern 'mlc_motion_wN.h' (e.g. 'mlc_motion_w75.h'). "
+            f"The orchestrator derives the binary path from this argument; "
+            f"a free-form header name is not supported. See v7.2 amendment "
+            f"(Zenodo DOI 10.5281/zenodo.20371440)."
+        )
+    window_n = m.group(1)
+    return f"{JETSON_REPO}/code/jetson/session4/mlc_setup_w{window_n}"
+
 
 # MLC polling parameters
 MLC_POLL_HZ = 50
@@ -132,18 +157,26 @@ def _accel_csv_means(csv_path):
 
 # --- Helpers ---
 
-def verify_jetson_state_parity():
-    """Extends base verify_jetson_state with checks for session-4 binaries."""
+def verify_jetson_state_parity(mlc_setup_path):
+    """Extends base verify_jetson_state with checks for session-4 binaries.
+
+    mlc_setup_path is the per-session binary derived from
+    --mlc-config-header by jetson_mlc_setup_path() per v7.2's dispatch
+    logic. See Zenodo DOI 10.5281/zenodo.20371440.
+    """
     _verify_jetson_state_base()
 
-    # mlc_setup binary
-    r = ssh(f"test -x {JETSON_MLC_SETUP}", check=False)
+    # mlc_setup binary (path is derived from --mlc-config-header per v7.2)
+    r = ssh(f"test -x {mlc_setup_path}", check=False)
     if r.returncode != 0:
-        raise RuntimeError(f"mlc_setup binary not found at {JETSON_MLC_SETUP}. "
-                           f"Build it: cd code/jetson/session4 && "
-                           f"gcc -O2 -Wall -I../../mlc_config "
-                           f"-DMLC_CONFIG_HEADER=\\\"mlc_motion_w75.h\\\" "
-                           f"-o mlc_setup mlc_setup.c")
+        raise RuntimeError(
+            f"mlc_setup binary not found at {mlc_setup_path}. "
+            f"Build it on the Jetson: "
+            f"cd code/jetson/session4 && "
+            f"gcc -O2 -Wall -I<path-to-header-dir> "
+            f"-DMLC_CONFIG_HEADER=<header-name>.h "
+            f"-o mlc_setup_w<N> mlc_setup.c"
+        )
 
     # mlc_poller binary
     r = ssh(f"test -x {JETSON_MLC_POLLER}", check=False)
@@ -155,10 +188,78 @@ def verify_jetson_state_parity():
     print("[orchestrator] mlc_setup and mlc_poller binaries present.")
 
 
-def run_mlc_setup():
-    """One-shot: flash the trained MLC config. Raises on failure."""
-    print("[orchestrator] Flashing MLC...")
-    r = ssh(f"sudo {JETSON_MLC_SETUP}", check=False, capture=True)
+# v7.2 (Strategy C'): post-flash silicon liveness check.
+# Reads MLC0_SRC from the embedded bank to confirm silicon is alive,
+# responsive, and classifying. Does NOT verify window length or specific
+# tree config -- that's caught post-hoc via the transition-count
+# diagnostic in code/analysis/.
+#
+# Register addresses confirmed against mlc_poll_probe.c:
+#   FUNC_CFG_ACCESS = 0x01 (user bank, controls bank selection)
+#   BANK_USER = 0x00, BANK_EMBEDDED = 0x80
+#   MLC0_SRC = 0x70 (in embedded bank)
+def verify_silicon_alive():
+    """Read MLC0_SRC over SSH/i2cget. Raise if readback fails or value
+    is not in {0x00 still, 0x04 motion}. Bank-switch dance is the same
+    three-step sequence as in mlc_poll_probe.c.
+    """
+    # Bank-switch to embedded
+    r = ssh("sudo i2cset -y 7 0x6a 0x01 0x80", check=False, capture=True)
+    if r.returncode != 0:
+        raise RuntimeError(
+            f"silicon liveness check: bank-switch to embedded failed "
+            f"(exit {r.returncode}): {r.stderr}"
+        )
+
+    # Read MLC0_SRC (0x70 in embedded bank)
+    r = ssh("sudo i2cget -y 7 0x6a 0x70", check=False, capture=True)
+    src_str = r.stdout.strip() if r.returncode == 0 else None
+
+    # Restore bank to user (do this BEFORE raising if read failed -- we
+    # do NOT want to leave silicon in embedded bank, which would break
+    # subsequent operations).
+    r_restore = ssh("sudo i2cset -y 7 0x6a 0x01 0x00", check=False, capture=True)
+    if r_restore.returncode != 0:
+        raise RuntimeError(
+            f"silicon liveness check: failed to restore user bank "
+            f"(exit {r_restore.returncode}). Silicon is in an inconsistent "
+            f"state and may misbehave on subsequent operations."
+        )
+
+    if src_str is None:
+        raise RuntimeError(
+            f"silicon liveness check: MLC0_SRC read failed (exit {r.returncode}). "
+            f"Bank was restored. stderr: {r.stderr}"
+        )
+
+    try:
+        src_val = int(src_str, 16)
+    except ValueError:
+        raise RuntimeError(
+            f"silicon liveness check: MLC0_SRC returned unparseable "
+            f"value {src_str!r}; expected hex like '0x00'."
+        )
+
+    if src_val not in (0x00, 0x04):
+        raise RuntimeError(
+            f"silicon liveness check: MLC0_SRC = 0x{src_val:02X}, expected "
+            f"0x00 (still) or 0x04 (motion). Silicon is responding but "
+            f"not in a known-good classification state. The flashed tree "
+            f"may not be the intended one."
+        )
+
+    print(f"[orchestrator] Silicon liveness OK: MLC0_SRC = 0x{src_val:02X} "
+          f"({'still' if src_val == 0x00 else 'motion'}).")
+
+
+def run_mlc_setup(mlc_setup_path):
+    """One-shot: flash the trained MLC config. Raises on failure.
+
+    mlc_setup_path is derived from --mlc-config-header per v7.2's
+    dispatch logic. See jetson_mlc_setup_path() above.
+    """
+    print(f"[orchestrator] Flashing MLC via {mlc_setup_path}...")
+    r = ssh(f"sudo {mlc_setup_path}", check=False, capture=True)
     if r.returncode != 0:
         raise RuntimeError(
             f"mlc_setup failed (exit {r.returncode}).\n"
@@ -172,6 +273,8 @@ def run_mlc_setup():
             f"Sensor may not have configured.\n  stderr: {r.stderr}"
         )
     print("[orchestrator] MLC flashed OK.")
+    # v7.2 Strategy C': verify silicon is alive after flash.
+    verify_silicon_alive()
 
 
 # Regex for parsing the imu_logger and mlc_poller stderr.
@@ -194,8 +297,13 @@ def parse_mlc_t_start(stderr_text):
 # --- v5 Change 2: mount-check functions ---
 
 def run_class_capture_parity(class_name, duration_sec, session_dir,
-                             jetson_session_dir, odr_hz):
-    """Run a single class capture with parallel MLC silicon capture."""
+                             jetson_session_dir, odr_hz, mlc_setup_path):
+    """Run a single class capture with parallel MLC silicon capture.
+
+    mlc_setup_path is the derived mlc_setup_wN binary path per v7.2's
+    dispatch logic. Threaded through from main() via
+    jetson_mlc_setup_path(args.mlc_config_header).
+    """
     from saleae import automation
 
     is_motion = (class_name == "motion")
@@ -217,7 +325,7 @@ def run_class_capture_parity(class_name, duration_sec, session_dir,
     # 2. Flash MLC. This must happen BEFORE Saleae starts capturing because
     #    mlc_setup performs SW_RESET, which would briefly de-assert all
     #    INT lines and look like an anomaly on the wire trace.
-    run_mlc_setup()
+    run_mlc_setup(mlc_setup_path)
     # mlc_setup includes a 100ms sleep after flash. Add a bit more buffer
     # before we start capturing.
     time.sleep(0.3)
@@ -378,10 +486,15 @@ def main():
                         help=f"Sample rate Hz (default: {DEFAULT_ODR_HZ})")
     parser.add_argument("--btest", action="store_true",
                         help="Mark as a test run (-btest suffix); reduce duration to 30 sec")
-    parser.add_argument("--mlc-config-header", default=DEFAULT_MLC_CONFIG_HEADER,
-                        help=f"MLC config header for provenance "
-                             f"(default: {DEFAULT_MLC_CONFIG_HEADER}). "
-                             f"NOTE: must match the header mlc_setup was built with.")
+    parser.add_argument("--mlc-config-header", required=True,
+                        help="MLC config header to flash (e.g. "
+                             "mlc_motion_w25.h, mlc_motion_w75.h, "
+                             "mlc_motion_w200.h). The orchestrator derives "
+                             "the mlc_setup_wN binary path from this "
+                             "argument and records it in session.json. Per "
+                             "v7.2 amendment, this is no longer optional and "
+                             "no longer has a default. See Zenodo DOI "
+                             "10.5281/zenodo.20371440.")
     args = parser.parse_args()
 
     session_date = args.session_date
@@ -390,6 +503,11 @@ def main():
         session_date += "-btest"
         duration = min(duration, 30)
         print(f"[orchestrator] BTEST mode: session={session_date}, duration={duration}s")
+
+    # Derive the per-session mlc_setup binary path from --mlc-config-header.
+    # Per v7.2 amendment: the orchestrator no longer hardcodes the binary.
+    mlc_setup_path = jetson_mlc_setup_path(args.mlc_config_header)
+    print(f"[orchestrator] MLC setup binary: {mlc_setup_path}")
 
     session_dir = LOCAL_DATA_BASE / session_date
     jetson_session_dir = f"{JETSON_DATA_BASE}/{session_date}"
@@ -402,7 +520,7 @@ def main():
     session_dir.mkdir(parents=True, exist_ok=True)
 
     # Pre-flight
-    verify_jetson_state_parity()
+    verify_jetson_state_parity(mlc_setup_path)
     verify_saleae()
     # v6: Mount-check disabled; sessions proceed without geometry validation.
 
@@ -430,6 +548,7 @@ def main():
             session_dir=session_dir,
             jetson_session_dir=jetson_session_dir,
             odr_hz=args.odr,
+            mlc_setup_path=mlc_setup_path,
         )
         session_metadata["classes"].append(result)
     session_metadata["finished_at"] = datetime.now().isoformat()
