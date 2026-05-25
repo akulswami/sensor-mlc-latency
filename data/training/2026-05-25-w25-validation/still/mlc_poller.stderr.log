@@ -1,0 +1,3 @@
+mlc_poller: hz=50, duration=1203s, out=/home/akulswami/sensor-mlc-latency/data/training/2026-05-25-w25-validation/still/silicon_raw.csv
+t_start_monotonic = 19143.949675
+mlc_poller: done. polls=58296, errors=0, transitions=259, elapsed=1203.001s, effective_hz=48.46
