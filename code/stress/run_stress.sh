@@ -88,10 +88,14 @@ start_stress() {
     fi
 
     echo "Starting: ${cmd[*]}" >&2
-    "${cmd[@]}" &
+    # Use nohup + redirect + disown so the process survives SSH session close.
+    # Without this, ssh closing sends SIGHUP to the process group and stress-ng
+    # workers stop loading the CPU even though they remain in the process table.
+    nohup "${cmd[@]}" </dev/null >/tmp/stress_ng_stdout.log 2>&1 &
     local pid=$!
+    disown $pid 2>/dev/null || true
     echo "$pid" > "$PID_FILE"
-    echo "Started stress-ng (pid $pid)." >&2
+    echo "Started stress-ng (pid $pid, nohup'd + disowned)." >&2
     return 0
 }
 
