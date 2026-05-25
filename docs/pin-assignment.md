@@ -81,3 +81,37 @@ during the SPI bring-up phase (2026-04-29 → 2026-05-01); since the move
 to I²C and the addition of the servo rig, those probes are no longer
 wired. See lab notebook 2026-05-01 for the SPI→I²C transition.
 
+
+
+## i2cdetect `-r` flag is required, not optional
+
+To verify either bus is functional, **always use `sudo i2cdetect -y -r <bus>`**.
+The `-r` flag forces read-based probing. Without it, `i2cdetect` defaults to
+SMBus Quick Write probing, which returns false-negatives for many
+breakout-board devices including the LSM6DSOX at 0x6A and the PCA9685 at 0x60
+used in this project.
+
+This has burned multiple debugging detours: see lab notebook `2026-05-24.md`
+line 284 ("`i2cdetect -r` flag failure mode") for the canonical writeup, and
+`2026-05-25.md` for the orchestrator-bug-fix episode where this assumption
+came up again.
+
+Quick reference commands:
+
+```bash
+# Sensor bus (LSM6DSOX expected at 0x6A)
+sudo i2cdetect -y -r 7
+
+# Servo bus (PCA9685 expected at 0x60, also INA3221 at 0x40)
+sudo i2cdetect -y -r 1
+```
+
+A device showing up here is necessary but not sufficient evidence it's
+configured correctly. For the LSM6DSOX, the WHO_AM_I register (0x0F) should
+read 0x6C. For the PCA9685, MODE1 (0x00) should be readable and non-zero
+after init.
+
+For sensor configuration verification (which window length is flashed, what
+the MLC tree is doing), `i2cdetect` is insufficient; see
+`docs/lab-notebook/2026-05-25.md` for the post-flash behavioral verification
+pattern using `mlc_poll_probe` or direct MLC0_SRC readback.
