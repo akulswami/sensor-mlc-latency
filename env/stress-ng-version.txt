@@ -1,0 +1,13 @@
+stress-ng 0.13.12
+ii  stress-ng                                    0.13.12-2ubuntu1                                 arm64        tool to load and stress a computer
+
+Recorded 2026-05-25 from /usr/bin/stress-ng on the Jetson Orin Nano running JetPack 6.2.2.
+Installed via apt; package "stress-ng".
+
+To verify on the experiment rig:
+    stress-ng --version
+
+To verify the package origin:
+    dpkg -l | grep stress-ng
+
+Per pre-reg §8: the stress-ng version used in the latency experiment must match this file. If the binary is upgraded before the experiment runs, this file must be updated and the change committed before the next capture.
