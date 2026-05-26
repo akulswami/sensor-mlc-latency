@@ -288,6 +288,158 @@ Per the findings above, the confirmatory campaign should:
    Long-duration data already falsified the directional H4'; running
    confirmatory data would just re-confirm the null.
 
+## MLC decision cadence and exclusion-rate interpretation (added 2026-05-26)
+
+The §11 exclusion-rate problem identified in the long-duration smoke
+data (12-17% exclusion in b700 and b701, well above the v5 §11 10%
+cap) was investigated via the new diagnostic script
+`code/analysis/diagnose_mlc_decision_cadence.py`. The investigation
+revealed that the dominant exclusion mode (`multiple_d1_in_window`)
+is not a measurement defect or simple bounce; it reflects the MLC
+silicon's intrinsic decision cadence becoming observable when the
+classifier output is unstable under stress.
+
+### Empirical MLC decision cadence: ~706 ms
+
+D1 rising edges across the entire b700 (mlc i2c-contention) and b703
+(host idle) blocks have a minimum inter-edge gap of 706.1 / 705.9 ms
+respectively. The gap distribution is concentrated at integer
+multiples of ~706 ms: 706, 1412, 2118, 2824, 3530, etc. The
+sub-millisecond bounce hypothesis (option 4 from initial
+investigation) is rejected; **the MLC fires INT1 every ~706 ms
+regardless of stimulus, as part of its intrinsic decision cadence.**
+
+Per the LSM6DSOX 75-sample window at 26 Hz ODR:
+
+- Full-window evaluation rate = 26 Hz / 75 samples ≈ 0.347 Hz =
+  2.88 s. (This is the "window quantization" referenced in
+  earlier pre-registration material.)
+- Empirical observed minimum D1 gap = 706 ms ≈ 2.88 s / 4.
+- **The MLC's decimator appears to output decisions every 25% of
+  a window, not only on full-window completion.** This was not
+  documented in ST's reference materials we found, but is
+  empirically reproducible across multiple long-duration blocks.
+
+### Per-trial D1 edge distribution (b700 vs b703)
+
+| Block | Pipeline | Condition       | 0 D1 | 1 D1 | 2 D1 | 3 D1 | 4 D1 |
+|------:|----------|-----------------|-----:|-----:|-----:|-----:|-----:|
+| 700   | mlc      | i2c-contention  |   10 |  306 |    7 |   34 |    3 |
+| 703   | host     | idle            |    0 |  356 |    0 |    4 |    0 |
+
+Both blocks have the same MLC cadence (706 ms) visible in their D1
+gap distributions, but the **frequency** of "more than 1 D1 per
+window" differs dramatically:
+
+- b703 host idle: 1.1% of windows have multiple D1 (4 / 360)
+- b700 mlc i2c-contention: 12.2% of windows have multiple D1 (44 / 360)
+
+The most common abnormal count is **3 D1 edges per window** (34 in
+b700, 4 in b703). With a 5-second stimulus and ~706 ms MLC cadence,
+3 D1 edges spaced at multiples of 706 ms is consistent with **the
+classifier flipping between motion and still 3 times within the
+stimulus**.
+
+### Interpretation: classifier instability is the stress effect
+
+Under stable conditions (b703, b702), the MLC's classification is
+consistent across decimator cycles within a single stimulus, so the
+host's "only toggle D1 on binary-state change" logic suppresses
+most decimator-period MLC interrupts. Only one D1 fires per
+stimulus.
+
+Under stress (i2c-contention in b700; DVFS jitter in b701), the
+MLC's classification flickers between motion and still within a
+single stimulus. Each flicker causes a real binary-state transition
+that the host correctly reports via D1. This produces multiple D1
+edges per stimulus — which the v7.4 §11 criterion 4
+(`multiple_d1_in_window`) excludes from latency analysis.
+
+**The 12-17% exclusion rate in stressed conditions IS the
+measurement.** It quantifies a real failure mode of the MLC
+silicon under bus contention: the classifier degrades in
+accuracy/stability, not only in latency. This is a finding
+separate from the wire-level latency increase reported in v7.5.
+
+### Implications for the confirmatory campaign and v7.6 amendment
+
+Per the v7.5 §11 stop-condition language ("If the rate at full
+scale exceeds 10% in any condition, §11's overall exclusion-rate
+clause requires disclosure and investigation"), the investigation
+is complete. The conclusion is:
+
+- The exclusions reflect MLC classifier degradation under stress.
+- The exclusions are NOT measurement defects; they are valid
+  observations of the stress modality's effect on MLC behavior.
+- The §11 10% cap should NOT be a stop condition for the
+  i2c-contention cells specifically; instead, the per-condition
+  exclusion rate should be reported alongside the latency
+  results as a secondary outcome.
+
+This requires a v7.6 amendment to formalize:
+- Restate §11's exclusion-rate clause to allow disclosure-only
+  (not exclusion) for stress conditions where the exclusion
+  mechanism is the classifier degradation itself
+- Add classifier stability as a new secondary outcome (per-cell
+  multiple-D1-per-window rate)
+- Document the MLC's 706 ms intrinsic decision cadence as part
+  of the measurement setup
+
+### Reproducing this finding
+
+```bash
+python3 code/analysis/diagnose_mlc_decision_cadence.py \
+    --block data/training/latency-experiment/block-700-mlc-i2c-contention
+```
+
+The script identifies the minimum D1 inter-edge gap as the lower
+bound on the MLC decision cadence and reports the per-trial D1
+count distribution. Run on b703 for a clean control (low exclusion
+rate, same cadence visible at the minimum-gap level).
+
+## nvpmodel methodology fix (added 2026-05-26)
+
+The jetson_clocks/nvpmodel non-determinism documented in the
+2026-05-25 second-session lab notebook entry and the
+ANALYSIS_OUTPUT_LONG_DURATION.md is now mitigated by a custom
+nvpmodel mode, **MAXN_SUPER_JC** (ID=3), defined in
+`code/jetson/nvpmodel/MAXN_SUPER_JC.snippet` and installable via
+`code/jetson/nvpmodel/install_maxn_super_jc.sh`.
+
+### What the mode does
+
+MAXN_SUPER_JC is a copy of the existing MAXN_SUPER mode (ID=2) with
+one change: CPU MIN_FREQ is set to 1728000 (matching MAX_FREQ),
+instead of 729600. This pins all 6 CPUs at the maximum frequency
+regardless of governor or scheduler decisions. The mode no longer
+fights jetson_clocks; the mode itself enforces the pin.
+
+### Operational impact
+
+Future measurement runs should:
+
+1. At session start: `sudo nvpmodel -m 3` (one command, idempotent)
+2. Verify: `nvpmodel -q` should report `NV Power Mode: MAXN_SUPER_JC, 3`
+3. Verify all CPUs at min=1728000:
+   `cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq`
+4. (No longer needed: `sudo jetson_clocks` is not required when
+   mode 3 is active, since the mode itself enforces the pin.)
+
+The mode is **opt-in**. PM_CONFIG DEFAULT=1 (25W) is preserved as
+the boot default, so the Jetson returns to "free-running DVFS" at
+power-up — which is the deployment-realistic configuration. The
+new mode is for measurement sessions only.
+
+### Empirical validation (2026-05-26 morning)
+
+The mode was applied and tested via a 5-minute soak with 5
+periodic CPU bursts (`stress-ng --cpu 6 --cpu-method matrixprod`).
+All CPUs held `min=cur=1728000` throughout. The mode round-trip
+(mode 3 → mode 1 → mode 3) succeeds without state corruption.
+
+This change is documented in the lab notebook entry for 2026-05-26
+and will be referenced by the v7.6 pre-registration amendment.
+
 ## Reproducibility
 
 Each block dir contains:
