@@ -1931,3 +1931,186 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 - v7.5: `10.5281/zenodo.20389914` (https://doi.org/10.5281/zenodo.20389914)
 
 These DOIs are back-filled into the `Status` lines of their respective amendments above. Per v5 Change 4, the same-day commitment is honored for all three amendments. This paragraph supersedes the prior "Outstanding DOI debt" note.
+
+
+## Amendment 2026-05-26 (v7.6): Falsification of H4' under jc-effective measurement; MAXN_SUPER_JC mode as required measurement configuration; §11 exclusion-rate clause restated; classifier stability added as secondary outcome
+
+**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+No pre-registered confirmatory measurement runs have been executed under any version of this pre-registration. The btest-scale exploratory data (59 blocks in `data/training/latency-experiment/block-*-btest/`, committed in b8d6113) and the long-duration smoke data (4 blocks 700-703 in the same directory, committed in 56b5051) are both exploratory; v7.6 incorporates findings from the long-duration smoke into the pre-registered protocol before the confirmatory campaign begins.
+
+The long-duration smoke data is summarized in `data/training/latency-experiment/CAMPAIGN_SUMMARY.md` (sections "Long-duration smoke findings", "MLC decision cadence and exclusion-rate interpretation", and "nvpmodel methodology fix"). The analysis output is frozen in `data/training/latency-experiment/ANALYSIS_OUTPUT_LONG_DURATION.md`. The lab-notebook entries for 2026-05-25 (second session) and 2026-05-26 document the chain of custody for the findings reported here.
+
+---
+
+### Reason for this amendment
+
+The long-duration smoke data revealed three substantive findings that require pre-registration changes:
+
+**(1) v7.5 H4' is falsified.** H4' as written in v7.5 stated that the on-sensor MLC pipeline uses lower mean VDD_IN milliwatts than the host pipeline under idle, vanilla scheduling. The directional support for H4' in v7.5 came from btest data showing a +155 mW gap (host idle 4799 mW vs mlc idle 4644 mW). The long-duration smoke data, captured under the same nvpmodel 25W mode and on the same physical rig, gives:
+
+- **b703 host idle, jc-effective (jc_eff = 100.0%, n_eng = 3551 samples): 6982 mW**
+- **b702 mlc idle, jc-effective (jc_eff = 100.0%, n_eng = 3554 samples): 7014 mW**
+- **Gap (host − mlc): −32 mW**
+
+The observed gap is within the v7.5 §6.3 ±50 mW noise floor. Under jc-effective measurement, the energy gap collapses to noise. The btest +155 mW finding was an artifact of comparing measurements taken under free-running DVFS, where the host pipeline's slightly higher CPU utilization caused schedutil to scale CPUs up more often than for the MLC pipeline. Under locked CPU frequency (which the new MAXN_SUPER_JC mode enforces), this scaling difference disappears.
+
+**(2) The nvpmodel/jetson_clocks non-determinism is a methodology defect requiring a configuration change.** During the 2026-05-25 long-duration smoke series, jetson_clocks effectiveness was empirically observed to vary across blocks: b700 jc_eff = 100%, b701 jc_eff = 17.3%, b702 jc_eff = 100%, b703 jc_eff = 100%. The cause is the default nvpmodel 25W mode (mode 1) declaring `CPU_A78_*: MIN_FREQ = 729600`, which the kernel periodically restores even after `sudo jetson_clocks` sets min == max == 1728000. The reassertion is non-deterministic in timing; without explicit per-block verification of jc effectiveness, energy measurements collected under "jetson_clocks-applied" cannot be assumed to actually be jc-effective. A custom nvpmodel mode (MAXN_SUPER_JC, ID 3) was created, installed, and empirically validated; it pins CPU MIN_FREQ to 1728000, defeating the reassertion.
+
+**(3) The §11 exclusion-rate clause requires restatement.** v7.5 §11 (inherited from v1) states that if the per-condition trial exclusion rate exceeds 10%, the cause must be investigated and disclosed. At long-duration scale, b700 (mlc i2c-contention, jc-effective) produced 16.7% exclusion and b701 (host idle, jc-ineffective) produced 12.2%. Investigation via `code/analysis/diagnose_mlc_decision_cadence.py` showed that:
+
+- The MLC's intrinsic decision cadence is ~706 ms (one quarter of the 75-sample / 26 Hz window). This is structural to the silicon, not a measurement defect.
+- The `multiple_d1_in_window` exclusion category dominates the exclusions (44 of 60 in b700; 43 of 44 in b701).
+- The "multiple D1" pattern is the MLC's intrinsic 706 ms cadence becoming observable when the classifier's binary output is unstable across a stimulus window — i.e., when the silicon's classification flickers between motion/still due to stress.
+- The exclusions are valid observations of MLC classifier degradation under stress, not measurement defects. The 12-17% exclusion rate IS a measurement of a real secondary failure mode.
+
+The §11 stop-condition language as written would block the confirmatory campaign from proceeding with i2c-contention cells. This is the wrong response: the exclusions ARE the data. §11 must be restated to allow disclosure-only treatment of stress-induced classifier-instability exclusions.
+
+---
+
+### Change 1: §2 H4' is formally falsified and removed from the confirmatory hypothesis set
+
+v7.5 Change 2 introduced H4' as:
+
+> **H4' (energy ordering at idle):** Mean VDD_IN milliwatts measured by the Jetson on-board INA3221 satisfies `mean(MLC) < mean(host)` under idle, vanilla scheduling.
+
+This hypothesis is formally falsified by the b702/b703 apples-to-apples comparison documented above. H4' is replaced by:
+
+> **H4' (NULL, post-falsification 2026-05-26):** Under jc-effective measurement (nvpmodel mode 3 active throughout the block, jc_eff ≥ 99% verified post-hoc from tegrastats CPU-freq samples), mean VDD_IN milliwatts of the host pipeline and the MLC bank-switch pipeline at idle are statistically indistinguishable within the v7.5 §6.3 ±50 mW threshold. The pre-registered directional H4' is empirically falsified.
+>
+> H4'₀ (null, retained as the empirical finding): |mean(host | idle, jc-eff) − mean(mlc | idle, jc-eff)| ≤ 50 mW.
+> H4'₁ (alternative, falsified): mean(mlc | idle, jc-eff) < mean(host | idle, jc-eff) − 50 mW.
+
+The confirmatory campaign will report the empirical gap and bootstrap CI; the directional alternative is no longer pre-registered as an active hypothesis. **No re-test of the falsified H4'₁ is planned.** The empirical finding (gap is null) is reported as such.
+
+### Change 2: §6.1 nvpmodel and jc-effectiveness verification protocol
+
+§6.1 is extended:
+
+> **Measurement configuration (required for all confirmatory blocks):**
+>
+> 1. Before any confirmatory block: `sudo nvpmodel -m 3` (the MAXN_SUPER_JC mode, defined in `code/jetson/nvpmodel/MAXN_SUPER_JC.snippet` and installable via `code/jetson/nvpmodel/install_maxn_super_jc.sh`). Verification: `nvpmodel -q` must report `NV Power Mode: MAXN_SUPER_JC, 3`.
+>
+> 2. Each block's tegrastats.log MUST be post-hoc analyzed for jc_eff (percentage of CPU-freq samples at ≥ 1700 MHz across all 6 CPUs). Threshold: `jc_eff ≥ 99.0%`. Blocks with `jc_eff < 99%` are excluded from the confirmatory dataset (block-level exclusion, separate from the trial-level criteria in §11).
+>
+> 3. The orchestrator (`code/orchestrator/run_stress_block.py`) writes `jc_eff` into block_metadata.json post-capture. Implementation deferred to the confirmatory-campaign code-freeze commit.
+>
+> 4. Default-mode operation is NOT used for confirmatory measurements. nvpmodel mode 1 (25W) is the deployment-realistic configuration but is not the measurement configuration; the deployment-vs-measurement asymmetry is documented in the paper.
+
+### Change 3: §8 stress conditions are documented as nvpmodel-mode-3-only for confirmatory
+
+§8 is amended:
+
+> All three conditions (idle, i2c-contention, cpu-stress) are measured under nvpmodel mode 3 (MAXN_SUPER_JC). The btest data (59 blocks, b001-b618) was collected under nvpmodel mode 1 (25W) with free-running DVFS; that data is exploratory and is NOT directly comparable to confirmatory measurements on the energy axis. On the latency axis, btest data remains informative (latency is less affected by CPU frequency scaling than energy is).
+>
+> The cpu-stress condition is retained as a control (per H5', H6' from v7.5) but at long-duration scale under nvpmodel mode 3 it is expected to produce a smaller energy delta than at btest scale (because the baseline is already near max CPU frequency).
+
+### Change 4: §11 exclusion-rate clause is restated
+
+§11's overall exclusion-rate clause is amended:
+
+> **§11 exclusion-rate clause (v7.6 restatement):**
+>
+> Per-cell trial exclusion rate is reported alongside the latency results as a secondary outcome (see Change 5 below for the new "classifier stability" secondary outcome). For cells where the exclusion rate exceeds 10%:
+>
+> 1. The dominant exclusion category is reported (e.g., `multiple_d1_in_window`, `no_d1_in_window`, `multiple_d0_before_d1`).
+>
+> 2. If the dominant exclusion is `multiple_d1_in_window` AND the inter-edge-gap analysis (via `code/analysis/diagnose_mlc_decision_cadence.py`) shows gaps concentrated at integer multiples of ~706 ms (the MLC decision cadence), the exclusion is classified as **classifier-instability exclusion**. Classifier-instability exclusions are reported as data (they characterize the MLC's behavior under stress) and do NOT trigger a campaign stop.
+>
+> 3. If the dominant exclusion is any other category (`no_d1_in_window`, `multiple_d0_before_d1`, or `multiple_d1_in_window` with sub-millisecond gaps not at MLC-cadence multiples), the exclusion is investigated for measurement defects per the prior §11 language and may trigger a stop.
+>
+> 4. The full exclusion-category breakdown per cell is committed alongside the trial CSVs.
+
+Examples of how this applies to the long-duration smoke blocks:
+- b700 mlc i2c-contention: 16.7% exclusion, 44/60 multiple_d1, all at 706 ms multiples → classifier-instability, disclosed not stopped
+- b701 host idle (jc-ineffective): 12.2% exclusion, 43/44 multiple_d1 → classified as classifier-instability under DVFS jitter; b701 is also excluded by the new jc_eff < 99% block-level rule, so this cell will not appear in the confirmatory dataset
+- b702 mlc idle: 1.4% exclusion → below the 10% threshold, no action
+- b703 host idle: 1.1% exclusion → below the 10% threshold, no action
+
+### Change 5: classifier stability is added as a secondary outcome
+
+§6.2 is extended:
+
+> **Classifier stability (per-cell):** the fraction of trials within a cell that produce exactly 1 D1 rising edge in the stimulus window. Formally: `n_trials_with_n_d1==1 / n_total_trials_per_cell`. Higher is more stable. Reported per-cell alongside latency median, energy mean, and exclusion rate.
+>
+> The "1 D1 per stimulus" criterion reflects the expected classifier behavior under stable measurement conditions (the classifier produces a single binary state-change per stimulus). Lower values reflect either no-decision intervals (`0 D1`, the `no_d1_in_window` exclusion) or oscillation (`≥2 D1`, the `multiple_d1_in_window` exclusion).
+
+Empirical reference from the long-duration smoke:
+- b703 host idle: 356/360 = 98.9% stable
+- b702 mlc idle: 355/360 = 98.6% stable
+- b700 mlc i2c-contention: 306/360 = 85.0% stable
+- (b701 host idle, jc-ineffective: 316/360 = 87.8% stable — excluded from confirmatory by Change 2)
+
+The confirmatory campaign will report per-cell classifier stability and pre-register the directional comparison: stability is expected to be lower under i2c-contention than under idle (H7' below).
+
+### Change 6: §2 New hypothesis H7' (classifier stability under contention)
+
+A new hypothesis is added:
+
+> **H7' (classifier stability degradation under bus contention):** The per-cell classifier-stability rate (fraction of trials with exactly 1 D1 per window) is lower under i2c-contention than under idle, for the MLC bank-switch pipeline.
+>
+> H7'₀: stability(MLC | i2c-contention) ≥ stability(MLC | idle)
+> H7'₁: stability(MLC | i2c-contention) < stability(MLC | idle)
+
+Test: one-sided proportion test (chi-square or Fisher's exact at the per-trial level), Holm-Bonferroni corrected across the full set of confirmatory hypotheses (now H1'-H3', H5'-H7'; H4' is no longer tested per Change 1).
+
+### Change 7: §10 (Items deferred to Phase B) updated
+
+§10 should now reflect that:
+
+- The nvpmodel mode 3 (MAXN_SUPER_JC) is installed and validated on the akulswami-jetson rig as of 2026-05-26.
+- The orchestrator `jc_eff` post-hoc computation is NOT yet implemented; this is added to the §10 Phase-B locks-before-confirmatory list.
+- The MLC decision cadence (~706 ms) is documented as a measured-not-pre-registered property of the silicon and is referenced by §11's restated clause.
+
+### Change 8: Document MLC ~706 ms decision cadence
+
+A new section is added to §6 (or as an appendix; placement to be decided when v7.6 is rendered): the empirical MLC decision cadence is 706.1 ± 0.5 ms at the inter-D1-edge minimum. This is reproducible from both b700 and b703 via `diagnose_mlc_decision_cadence.py`. The cadence is one quarter of the 75-sample / 26 Hz window (= 2.88 s / 4 ≈ 720 ms; observed 706 ms reflects integer-sample boundary effects in the MLC decimator). This is a documented property of the silicon; no hypothesis is pre-registered about its value. It is referenced by §11 (Change 4 above) as the test for "real classifier oscillation" vs "measurement defect."
+
+---
+
+### What is NOT changed by this amendment
+
+- §1 research question (the characterization frame from v7.5 stands)
+- §3 trial count (n=500 per cell retained, applied to the now-9-cell × 1-scheduling-regime = 4500-trial confirmatory dataset; chrt+taskset ablation remains as planned in v7.5 Change 7)
+- §4 classification task (binary motion-vs-still)
+- §5 pipelines (host, mlc, mlc-binary as in v7.5)
+- §7 randomization and blocking
+- §9 accuracy parity gate
+- §11 trial-level criteria 1-4 (the cell-level exclusion-rate clause is restated; criteria 1-4 are unchanged)
+- §12 statistical machinery (existing module supports the proportion tests for H7' too)
+- §13, §14
+- All prior amendments v2 through v7.5
+
+H1', H2', H3', H5', H6' from v7.5 remain in effect as pre-registered hypotheses. Only H4' is retired (Change 1). H7' is added (Change 6).
+
+---
+
+### Procedural lessons recorded in this amendment
+
+1. **Long-duration smoke testing exposed methodology defects that btest could not detect.** The btest data was internally consistent under its own (free-running DVFS) measurement conditions; only sustained-load measurement under nvpmodel-25W revealed the jc/MIN_FREQ reassertion behavior. **The confirmatory campaign protocol now requires per-block jc_eff verification because btest-style "apply jc and assume it stuck" is empirically insufficient.**
+
+2. **The Razmi & Shojaei 2026 paper's energy claim (cited in v7.5) is not refuted by our data; it is more strongly characterized.** Their on-sensor MLC architecture (LSM6DSV16X) and ours (LSM6DSOX) share the bank-switch decision-output mechanism. Our data shows that any "host saves energy at idle" effect, if it exists, is below the 50 mW measurement noise floor under jc-effective conditions. The paper can now claim a tighter null than v7.5 implied.
+
+3. **The exclusion-rate problem and the classifier-instability finding are the same finding viewed two ways.** §11 originally treated "high exclusion rate" as a stop condition; v7.6 treats it as a secondary outcome (classifier stability). Both interpretations are correct, but the v7.6 framing reflects the true scientific content of the exclusions.
+
+4. **System config changes (nvpmodel mode 3) need their own reproducibility artifacts.** The MAXN_SUPER_JC mode is committed as a snippet plus install script in `code/jetson/nvpmodel/`; the install script is idempotent, makes a backup, verifies via nvpmodel-parse before completing, and is run via `sudo`. This pattern should be reused for any future Jetson-side system config changes.
+
+---
+
+### Stop condition
+
+If the confirmatory campaign produces statistics that contradict the long-duration-smoke findings — specifically, if at full n any of H1', H2', H3', H7' is rejected by the bootstrap CI test — the contradiction is investigated and reported. The smoke-scale findings are the empirical basis for v7.6's hypotheses; the confirmatory campaign tests them against fresh data.
+
+The §11 cell-level exclusion-rate clause (Change 4) is the new stop condition. A campaign stop is triggered if:
+
+- Any cell's exclusion rate exceeds 30% (a higher cap than the original 10%, given that 12-17% exclusion at long-duration scale is now expected for stress cells)
+- OR the dominant exclusion category in any cell is NOT classifier-instability per the Change 4 criteria
+- OR jc_eff < 99% for any block (block-level exclusion per Change 2, but if this happens for >5% of blocks the confirmatory dataset is rejected and the nvpmodel mode-3 enforcement is re-verified)
+
+---
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-26-v7-6`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
