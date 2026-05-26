@@ -1446,7 +1446,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-25 (v7.3): D2-based motion-window gating; servo_sweep burst-mode operationalization; sweep.log retired from gating
 
-**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20389899 (https://doi.org/10.5281/zenodo.20389899).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
@@ -1593,7 +1593,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-25 (v7.4): §11 criterion 4 reinterpretation for the windowed task; sync-edge channel formalization
 
-**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20389909 (https://doi.org/10.5281/zenodo.20389909).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
@@ -1690,7 +1690,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-25 (v7.5): Falsification of H1/H4 at btest scale; reframe to characterization study; addition of energy as a secondary outcome, I²C contention as the primary stress, and mlc-binary as a third pipeline variant
 
-**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20389914 (https://doi.org/10.5281/zenodo.20389914).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
@@ -1924,4 +1924,10 @@ If the i2c-contention condition cannot be reliably maintained at full scale (e.g
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-25-v7-5`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
 
-**Outstanding DOI debt:** v7.3 and v7.4 amendment Zenodo DOIs are also currently `[TBD-DOI-INSERT]`. Per v5 Change 4, these should have been minted same-day on 2026-05-25. The DOIs for v7.3, v7.4, and v7.5 are committed to be minted in a single Zenodo release session immediately following the commit of this amendment, and the three DOIs back-filled into their respective `Status` lines in a follow-up commit. This honest-disclosure paragraph supersedes the same-day commitment for v7.3 and v7.4 specifically; the back-fill is the procedural remedy.
+**DOI debt resolution (2026-05-25):** v7.3, v7.4, and v7.5 Zenodo DOIs were originally placeholders awaiting minting. They were minted in a single Zenodo release session immediately following the commit of this amendment, within the same calendar day. The three DOIs are:
+
+- v7.3: `10.5281/zenodo.20389899` (https://doi.org/10.5281/zenodo.20389899)
+- v7.4: `10.5281/zenodo.20389909` (https://doi.org/10.5281/zenodo.20389909)
+- v7.5: `10.5281/zenodo.20389914` (https://doi.org/10.5281/zenodo.20389914)
+
+These DOIs are back-filled into the `Status` lines of their respective amendments above. Per v5 Change 4, the same-day commitment is honored for all three amendments. This paragraph supersedes the prior "Outstanding DOI debt" note.
