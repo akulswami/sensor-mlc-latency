@@ -1687,3 +1687,241 @@ If the restated criterion 4 produces an exclusion rate exceeding the per-conditi
 ### External timestamp
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-25-v7-4`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
+
+## Amendment 2026-05-25 (v7.5): Falsification of H1/H4 at btest scale; reframe to characterization study; addition of energy as a secondary outcome, I²C contention as the primary stress, and mlc-binary as a third pipeline variant
+
+**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+No pre-registered confirmatory measurement runs have been executed under any version of this pre-registration. The 59 btest-scale blocks captured on 2026-05-25 (block IDs 001-005, 101-112, 200-202, 301-312, 401-407, 501-502, 601-618, in `data/training/latency-experiment/`) are exploratory smoke-test data, not confirmatory pre-registered measurements. v7.5 incorporates findings from this exploratory data into the pre-registered protocol before the confirmatory campaign begins.
+
+The exploratory btest data is summarized in `data/training/latency-experiment/CAMPAIGN_SUMMARY.md` (committed in `b8d6113` and updated with energy findings in `b35a15f`). The analysis script that produces the per-cell statistics is `code/analysis/analyze_energy_and_latency.py` (committed in `b35a15f`).
+
+---
+
+### Reason for this amendment
+
+The btest-scale exploratory data revealed three categories of findings that require pre-registered protocol changes before any confirmatory campaign can produce interpretable results:
+
+**(1) Falsification of H1 and H4 at btest scale.**
+
+The original H1 stated that median wire-level latency of the on-sensor MLC pipeline is lower than the on-host pipeline under no CPU stress. The btest data (blocks 301-312, n=17-18 per cell, vanilla scheduling, idle condition):
+
+- Host pipeline median: 351 µs
+- MLC pipeline median (3-transaction bank-switch read): 761 µs
+
+The MLC pipeline median is 410 µs **higher** than the host pipeline median, not lower. H1 is falsified at btest scale; under any reasonable extrapolation the confirmatory campaign would not support H1₁ ("median(latency_MLC) < median(latency_host)") because the observed direction is opposite.
+
+The original H4 stated that median MLC pipeline latency under CPU stress differs from no-stress by at most a small effect (per §6.3: <10 µs absolute median difference). The btest data (block-001 mlc-idle vs block-003 mlc-stress, exploratory pre-restructure smoke):
+
+- MLC idle median: 569 µs (5 trials)
+- MLC stress median: 567 µs (5 trials)
+- Difference: 2 µs, well within the 10 µs threshold
+
+H4 is **directionally supported by btest data** but for a reason different from the pre-registered theory. The pre-reg's theory was "MLC silicon is decoupled from host load." The btest finding is that **neither pipeline's median latency moves under CPU stress** — the host pipeline median is also nearly invariant to CPU stress (block-002 host-idle 370 µs vs block-004 host-stress ~365 µs, both at btest scale n=5-6). This means the CPU stress condition does not produce the differential degradation H2 predicts, because there is essentially no degradation to differentiate. The mechanism on which H2 and H4 rest is not present at this exploratory scale.
+
+The btest data does NOT rule out an effect at the confirmatory scale (n=500 per condition would catch effects smaller than btest n=18 can resolve). However, the observed effect direction at btest scale and the mechanistic understanding gained (see Change 2 below) make H1 unrecoverable.
+
+**(2) I²C bus contention is a more relevant stress modality than CPU stress.**
+
+Exploratory characterization of the I²C bus (using the `i2c_hammer` tool, committed in `d4a877d`) revealed that 3 parallel I²C reader processes on the LSM6DSOX bus (modeling 3 sensors on a shared bus, a realistic embedded configuration) raise the median I²C read time from 300 µs (idle) to 623 µs (N=3 contention), a +108% increase. Under N=3 i2c-contention (blocks 304-306 and 310-312, vanilla scheduling):
+
+- Host pipeline latency: 351 → 643 µs (+292 µs, +83%)
+- MLC pipeline latency: 761 → 1534 µs (+773 µs, +102%)
+
+Both pipelines degrade dramatically under I²C contention, with the MLC pipeline degrading more in absolute terms because each MLC measurement requires 3 I²C transactions vs the host pipeline's 1. This is a richer stress modality than CPU stress: CPU stress at btest produced ~0 µs latency change; I²C contention produced 290-770 µs changes. The pre-registered campaign should test the modality that actually affects the system under measurement.
+
+**(3) The MLC silicon's wire-level latency is dominated by the I²C read protocol, not by the silicon's inference time.**
+
+Inspection of `code/jetson/mlc_pipeline/latency_test_mlc.c` (committed under v7) shows that reading MLC0_SRC requires 3 sequential I²C transactions:
+
+1. Write `FUNC_CFG_ACCESS = 0x80` (switch to embedded function bank)
+2. Read `MLC0_SRC` (the inference result)
+3. Write `FUNC_CFG_ACCESS = 0x00` (restore user bank)
+
+This is a property of the LSM6DSOX register-bank protocol; the inference itself completes inside the silicon before the INT1 edge fires. Predicted wire-level latency = 3 × i2c_read_bench median, which matches observed (903 µs predicted vs 761 µs observed at idle; 1869 µs predicted vs 1534 µs observed at N=3 contention). The variance is within the kernel I²C pipelining error expected for back-to-back transactions to the same slave.
+
+An alternative MLC read path (`latency_test_mlc_binary.c`, committed in `d4a877d`) skips the bank-switch read entirely by toggling the decision GPIO unconditionally on every INT1 rising edge. This is valid only for strictly 2-class MLC configurations (e.g., `mlc_motion_w75.h`), where every INT1 edge corresponds to a binary-state transition by definition. The internal `host_dt_us` for this variant is 17-21 µs (vs the bank-switch variant's ~500 µs internal `host_dt_us`), but the **wire-level** Saleae-measured latency is dominated by Linux gpiod userspace event-handling jitter (bimodal between ~60 µs and ~550 µs, sd 150-200 µs). The mlc-binary variant exposes the gpiod jitter floor that the bank-switch variant hides behind its larger I²C latency.
+
+These three findings together mean the original hypothesis-testing structure (H1-H4) is no longer the right scientific frame for this project. The system as built does not have the property H1 predicts; the stress modality H2-H4 reference does not produce differential latency at the relevant scale; and the underlying mechanism is not the silicon's inference speed but rather the bus protocol cost. The amendment therefore reframes the project as a **characterization study** of wire-level latency and energy across pipeline variants, stress conditions, and scheduling regimes, with revised confirmatory hypotheses that match the actual measurable properties of the system.
+
+---
+
+### Change 1: §1 Research question is generalized to a characterization frame
+
+§1 is amended. The original research question stands as a sub-question; the framing is generalized to a characterization study with energy as a secondary axis:
+
+> For an IMU-based edge-AI classification pipeline running on an NVIDIA Jetson Orin Nano with an STMicroelectronics LSM6DSOX IMU, **what are the wire-level latency and host-side energy characteristics of three concrete classification pipelines (host-side software classifier, on-sensor MLC with bank-switch read, on-sensor MLC with unconditional binary-fast GPIO toggle), how do those characteristics change under realistic deployment stress (I²C bus contention from competing sensors on the same bus), and what role does host scheduling regime (vanilla CFS vs SCHED_FIFO with CPU pinning) play in either axis?**
+
+The original sub-questions ("does on-sensor MLC produce lower wire-level latency than host?" and "how does this comparison change under host CPU contention?") are explicitly retained as part of the characterization, but they are no longer framed as a directional hypothesis-testing claim.
+
+### Change 2: §2 Hypotheses H1-H4 are formally falsified or restated
+
+The original H1-H4 are replaced by H1'-H6' below. Each new hypothesis is grounded in btest-scale observations and is directional based on the observed effect direction at btest scale, not based on a priori theory.
+
+**Falsification record:**
+
+- **H1** ("median(latency_MLC) < median(latency_host) under no stress") is **falsified at btest scale**. Observed direction is opposite: median(MLC bank-switch) = 761 µs, median(host) = 351 µs, n=17-18 per cell. The confirmatory campaign will report this falsification regardless of n.
+- **H2** ("MLC's latency advantage over host is larger under CPU stress than no stress") is **vacuously false**: there is no advantage to amplify because the direction was wrong from the start.
+- **H3** ("median host latency under CPU stress > under no stress") is **falsified at btest scale**: 365 vs 370 µs in btest smoke; CPU stress does not move latency. Retained as a control hypothesis with reversed expectation (see H5' below).
+- **H4** ("MLC latency is decoupled from host CPU load") is **directionally supported but for the wrong reason** at btest scale. Retained as control (H6').
+
+**New hypotheses for the confirmatory campaign:**
+
+- **H1' (latency ordering at idle):** Median wire-level latency satisfies `median(host) < median(MLC bank-switch)` under idle, vanilla scheduling.
+  - H1'₀: median(host | idle) ≥ median(MLC bank-switch | idle)
+  - H1'₁: median(host | idle) < median(MLC bank-switch | idle)
+
+- **H2' (latency ordering under contention):** Median wire-level latency satisfies `median(host) < median(MLC bank-switch)` under N=3 i2c-contention, vanilla scheduling.
+  - H2'₀: median(host | i2c-contention) ≥ median(MLC bank-switch | i2c-contention)
+  - H2'₁: median(host | i2c-contention) < median(MLC bank-switch | i2c-contention)
+
+- **H3' (MLC degrades more than host under bus contention):** The increase in median latency from idle to N=3 i2c-contention is larger for the MLC bank-switch pipeline than for the host pipeline, in absolute terms.
+  - H3'₀: Δ_MLC ≤ Δ_host, where Δ = median(latency | i2c-contention) − median(latency | idle)
+  - H3'₁: Δ_MLC > Δ_host
+
+- **H4' (energy ordering at idle):** Mean VDD_IN milliwatts measured by the Jetson on-board INA3221 satisfies `mean(MLC) < mean(host)` under idle, vanilla scheduling.
+  - H4'₀: mean(power_MLC | idle) ≥ mean(power_host | idle)
+  - H4'₁: mean(power_MLC | idle) < mean(power_host | idle)
+
+- **H5' (CPU stress is a null condition for latency):** Median wire-level latency under CPU stress differs from idle by no more than a small effect for the host pipeline.
+  - H5'₀: |median(host | cpu-stress) − median(host | idle)| > 30 µs
+  - H5'₁: |median(host | cpu-stress) − median(host | idle)| ≤ 30 µs
+  - This is the EXPECTED falsification of the original H3. H5' replaces H3 with the opposite expectation.
+
+- **H6' (CPU stress is a null condition for energy):** Mean VDD_IN under CPU stress is materially larger than under idle for both pipelines.
+  - H6'₀: mean(power | cpu-stress) ≤ mean(power | idle) + 1000 mW
+  - H6'₁: mean(power | cpu-stress) > mean(power | idle) + 1000 mW
+  - This is a positive control demonstrating that CPU stress IS detectable on the energy axis even though it is not detectable on the latency axis.
+
+H1', H2', H3', H4' are the substantive hypotheses. H5' and H6' are control hypotheses that establish CPU stress is a null condition for latency but not for energy. H1' through H6' are independent tests; multiplicity correction is applied per §12 (Holm-Bonferroni across these 6 tests).
+
+### Change 3: §6.1 Primary outcomes are extended to include energy
+
+§6.1 is amended:
+
+> **Primary outcomes:**
+>
+> (a) **Wire-level latency per trial:** the time difference, measured by the Saleae Logic Pro 8, between the rising edge of the IMU INT1 line (D0) and the rising edge of the host's decision GPIO (D1), for trials in which a valid classification occurred. Sampling at ≥ 50 MS/s; resolution floor 20 ns.
+>
+> (b) **Host-system power per condition:** mean VDD_IN milliwatts measured by the Jetson Orin Nano's on-board INA3221 power monitor (kernel `hwmon1`, sourced via `tegrastats.log`) across all samples within a condition's measurement window. Sampling rate: ~2.5 Hz (one sample per ~400 ms tegrastats tick). Per-cell n at confirmatory scale: 500 trials × 5 s/trial × 2.5 Hz ≈ 6250 samples.
+
+§6.2 (Secondary outcomes) is extended:
+
+> Add: **Energy 95th percentile and IQR per condition** (alongside the existing latency 95th percentile, IQR, and max).
+
+§6.3 (Effect-size definitions) is extended:
+
+> Add: **"Material energy difference" threshold:** an absolute difference in mean VDD_IN of at least 50 mW. The 50 mW threshold is committed in advance based on the empirical between-block VDD_IN variability observed at btest scale (sd ~150-300 mW for individual samples, sd ~30-50 mW for block-level means at btest n=75 samples per block). 50 mW is approximately 1% of total Jetson SoC power and is the minimum effect size that is operationally meaningful for "let the host sleep" claims.
+
+### Change 4: §8 Stress condition is extended; CPU stress demoted to control
+
+§8 is amended. CPU stress is retained but is no longer the primary stress condition; I²C contention is added as a second stress condition and is the primary one for H1'-H4':
+
+> **Stress conditions (three):**
+>
+> 1. **Idle** (the no-stress condition). Jetson idle, only the measurement harness and required system services running. Blocks above 10% mean CPU utilization on non-harness cores are flagged and excluded.
+>
+> 2. **I²C contention (N=3) [PRIMARY STRESS for H1'-H4']:** three parallel `code/jetson/sensor_bringup/i2c_hammer` processes on the same I²C bus as the LSM6DSOX (bus 7), each reading the WHO_AM_I register in a tight ioctl loop. The empirically calibrated N=3 corresponds to median i2c-read latency of ~625 µs (vs ~300 µs at idle), representative of 3 sensors sharing the bus in a realistic embedded multi-sensor configuration. Verification: `code/stress/run_stress.sh verify-i2c-contention` checks that 3 i2c_hammer processes are active before block-data collection; blocks during which contention verification fails are flagged and excluded.
+>
+> 3. **CPU stress [CONTROL for H5'/H6']:** `stress-ng matrixprod` saturating all CPU cores at the highest non-thermal-throttling load. Verification as before (95% utilization threshold). At btest scale this condition produced ~0 µs latency change for both pipelines but ~+3000 mW VDD_IN. Retained primarily as a positive control demonstrating that CPU stress IS detectable on the energy axis and IS NOT detectable on the latency axis.
+
+The confirmatory campaign therefore consists of 3 pipelines × 3 conditions = 9 cells. Each cell receives 500 trials (per §3 retained from v1; see "What is NOT changed" below). Total trials: 4500.
+
+### Change 5: §5 Pipelines are extended to include mlc-binary
+
+§5 is amended. The original two pipelines (host, MLC) are retained, and a third pipeline variant is added:
+
+> **Three pipelines:**
+>
+> 1. **Host pipeline** (`code/jetson/host_inference/host_pipeline_parity`): the host reads accelerometer data via I²C on every DRDY interrupt, runs the binary classifier over a sliding window, and toggles the decision GPIO (D1) when the binary state changes.
+>
+> 2. **MLC bank-switch pipeline** (`code/jetson/mlc_pipeline/latency_test_mlc_w75`): on every MLC interrupt (D0), the host performs the 3-transaction I²C bank-switch read of `MLC0_SRC`, decodes the binary state, and toggles D1 only if the binary state changed. This is the pre-registered MLC pipeline from v7.
+>
+> 3. **MLC binary-fast pipeline** (`code/jetson/mlc_pipeline/latency_test_mlc_binary_w75`): on every MLC interrupt (D0), the host toggles D1 unconditionally without reading MLC0_SRC. Valid only because the MLC is loaded with a strictly 2-class configuration (`mlc_motion_w75.h`), under which every MLC interrupt corresponds to a binary state transition by definition. This variant tests whether the bank-switch read is the dominant latency contributor (it is, at idle) or whether other factors (gpiod userspace jitter, sensor INT1 propagation) form a comparable floor (they do, under chrt+taskset scheduling).
+>
+> H1'-H4' compare host vs MLC bank-switch. The mlc-binary variant is treated as an instrumented characterization to expose the latency floor; H1'-H4' do not directly test it, but its per-cell statistics are reported.
+
+### Change 6: §3 Design — n=500 per cell retained, cell count expanded
+
+§3 retains the n=500 per cell pre-commitment from v1, applied to the expanded design:
+
+- Original: 2 pipelines × 2 conditions × 500 trials = 2000 trials
+- v7.5: **3 pipelines × 3 conditions × 500 trials = 4500 trials**
+
+For chrt+taskset scheduling (see Change 7 below), the same 4500-trial structure is repeated as an ablation; this is documented as a planned ablation, not as a hypothesis test. The chrt+taskset ablation is exploratory and is not subject to multiplicity correction.
+
+### Change 7: chrt+taskset scheduling as a planned ablation
+
+The chrt+taskset scheduling regime (SCHED_FIFO priority 99, CPU pinned to core 5 via `chrt -f 99 taskset -c 5`) is added as a planned ablation alongside vanilla CFS scheduling. The ablation is exploratory; no pre-registered hypotheses depend on it. The btest data showed that chrt+taskset reduces median latency under contention substantially (e.g., mlc bank-switch i2c-contention: 1534 µs vanilla → 796 µs chrt+taskset) while having negligible effect on energy means (<1% shift). The ablation tests whether this btest pattern holds at confirmatory scale, and characterizes whether the gpiod userspace jitter floor observed in the mlc-binary variant can be reduced by RT scheduling.
+
+The orchestrator code modification required to invoke pipelines under chrt+taskset is currently held as an unstaged transformation (see commit message of `d4a877d`); it is not committed to `run_stress_block.py` because committing it would unilaterally change the vanilla-scheduling default. If the ablation is part of the confirmatory campaign, a future amendment (or this v7.5, after Zenodo timestamp) will introduce a `--scheduling {vanilla, rt}` flag to the orchestrator.
+
+### Change 8: §11 Exclusion criteria are unchanged for trials; new block-level criterion for energy
+
+§11 (trial-level exclusions) is unchanged from v7.4. A new block-level exclusion criterion is added for the energy axis:
+
+> **Energy block exclusion:** A block is flagged and excluded from energy analysis if its tegrastats sampling produced fewer than 50 samples (i.e., the block ran for less than ~20 seconds of tegrastats sampling). At btest scale all blocks produced 73-80 samples; at confirmatory scale (longer blocks) the threshold of 50 is well below the expected ~750 samples per 5-minute block.
+
+No change to the latency exclusion criteria 1-4.
+
+### Change 9: §12 Statistical analysis plan extended for the new hypotheses
+
+§12 (analysis plan) is extended:
+
+> **H1', H2' (one-sided Mann-Whitney U):** `mann_whitney_u(host_latencies, mlc_latencies, alternative='less')`. Pre-registered α = 0.05 per test, Holm-Bonferroni corrected across all 6 hypotheses.
+>
+> **H3' (Hodges-Lehmann difference + bootstrap CI):** Δ_MLC and Δ_host are each estimated as the median paired-difference (between-block bootstrap). H3'₁ accepted if the 95% bootstrap CI for (Δ_MLC − Δ_host) lies strictly above 0.
+>
+> **H4' (one-sided Mann-Whitney U on energy samples):** `mann_whitney_u(mlc_power, host_power, alternative='less')`. The per-sample energy data is autocorrelated within a block at the ~400 ms tegrastats sampling rate; effective sample size is reduced by an estimated factor of ~10 (justified by the empirical autocorrelation of tegrastats VDD_IN at btest scale, characterized post-campaign). Holm-Bonferroni applied as above.
+>
+> **H5' (TOST equivalence, two one-sided tests):** TOST with bootstrap margin of ±30 µs, per the threshold committed in §2 H5'.
+>
+> **H6' (one-sided Mann-Whitney U):** `mann_whitney_u(cpu_stress_power, idle_power, alternative='greater')` with the +1000 mW threshold checked separately via bootstrap CI on the difference of means.
+
+The existing pre-registered analysis module (`code/analysis/statistics.py`) implements Mann-Whitney U, Hodges-Lehmann, bootstrap CI, TOST, and Holm-Bonferroni; no new statistical machinery is needed.
+
+---
+
+### What is NOT changed by this amendment
+
+- §1 retains the original research question as a sub-question within the new characterization frame.
+- §3 retains n=500 trials per cell.
+- §4 Classification task. Unchanged.
+- §6.2 Latency 95th percentile, IQR, max. Unchanged (energy versions added).
+- §7 Randomization and blocking. Unchanged.
+- §9 Accuracy parity gate (≥90%, ≤2pp gap). Unchanged.
+- §11 trial-level criteria 1-4. Unchanged (a new block-level energy criterion is added).
+- §12 statistical machinery. Unchanged (the existing module supports the new hypotheses).
+- §13 Deviations and reporting. Unchanged.
+- §14 What this pre-registration does not cover. Unchanged.
+- All prior amendments v2 through v7.4. Unchanged.
+
+---
+
+### Procedural lessons recorded in this amendment
+
+1. **Btest-scale exploration before pre-registered measurement is essential and was correctly performed.** v7.5 documents falsification at the exploratory stage, BEFORE any confirmatory data was collected. This is the pre-registration discipline working as intended: hypotheses generated a priori were tested against empirical reality at small scale and updated before the expensive confirmatory campaign.
+
+2. **Stress modality selection requires empirical justification.** The original H2-H4 assumed CPU stress was the relevant stress modality. Empirical data showed it isn't (latency-wise); I²C contention is. A future pre-registration should empirically calibrate the stress condition's effect on the primary outcome before committing it to a hypothesis.
+
+3. **The Razmi & Shojaei 2026 preprint (arXiv:2602.21418)** asserts "low-latency control" and "energy efficiency" for a similar LSM6DSV16X MLC system without measuring either property. v7.5 commits this project to measuring both. Where these properties exist in the data, the paper supports them; where they don't (the latency claim), the paper reports the falsification.
+
+4. **The lab notebook must record the falsification of H1/H4 at btest scale.** A separate lab-notebook entry (`docs/lab-notebook/2026-05-25.md`, to be written) documents the timeline of how the falsification was discovered: orchestrator validation runs (blocks 101-112) → restructured orchestrator (200-202) → first clean 12-block campaign (301-312) revealed the falsification → mlc-binary variant added → chrt+taskset ablation. This trail is the empirical chain of custody for v7.5's claims.
+
+---
+
+### Stop condition
+
+If the confirmatory campaign (3 pipelines × 3 conditions × 500 trials = 4500 trials per scheduling regime) produces statistics that contradict the btest-scale findings — specifically, if at full n any of H1', H2', H3', H4' is rejected by the bootstrap CI test — the contradiction is investigated and reported. The btest-scale findings are not pre-registered claims; they are the empirical basis for v7.5's directional hypotheses. The confirmatory campaign tests those hypotheses against fresh data.
+
+If the i2c-contention condition cannot be reliably maintained at full scale (e.g., if the i2c_hammer processes cause sensor brownout, kernel panic, or sensor wedging events more often than at btest scale), the condition is downgraded to a control and a separate amendment defines a substitute primary stress.
+
+---
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-25-v7-5`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
+
+**Outstanding DOI debt:** v7.3 and v7.4 amendment Zenodo DOIs are also currently `[TBD-DOI-INSERT]`. Per v5 Change 4, these should have been minted same-day on 2026-05-25. The DOIs for v7.3, v7.4, and v7.5 are committed to be minted in a single Zenodo release session immediately following the commit of this amendment, and the three DOIs back-filled into their respective `Status` lines in a follow-up commit. This honest-disclosure paragraph supersedes the same-day commitment for v7.3 and v7.4 specifically; the back-fill is the procedural remedy.
