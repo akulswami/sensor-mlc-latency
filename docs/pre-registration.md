@@ -2251,3 +2251,111 @@ The amendment is scoped specifically to §9. The previously-pre-registered hypot
 ### External timestamp
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-26-v7-7`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
+
+
+## Amendment 2026-05-26 (v7.8): Block-order seed re-derivation for v7.5+ confirmatory campaign design
+
+**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+No data has been collected using the prior block-order seed (`441756681`, derived from commit `8c48e19`). The prior seed was committed for the v7-era 40-block experiment design (10 blocks per condition × 4 conditions = MLC{idle,stress} × host{idle,stress}). That design was superseded by v7.5 Change 6 (Zenodo DOI 10.5281/zenodo.20389914), which redesigned the campaign to 9 cells (3 pipelines × 3 conditions × 500 trials per cell) before any data was collected.
+
+The prior seed's value and provenance remain visible in the git history of `code/analysis/block_order_seed_provenance.md` (commit `8c48e19` era), preserving the audit record. v7.8 updates the file in place to record the new seed and the change rationale.
+
+---
+
+### Reason for this amendment
+
+The pre-reg block-order seed must satisfy three properties:
+
+1. **Committed before any data using it is collected.** (v1 §7, reaffirmed across v2-v7.7.)
+2. **Derived by a deterministic, audit-defensible method** that pre-empts post-hoc seed selection.
+3. **Appropriate to the experimental design being run.**
+
+The prior seed (`441756681`, anchored on commit `8c48e19`) satisfied (1) and (2) for the v7-era 40-block design. Under v7.5's redesigned 9-cell × ~9-block layout (81 blocks total under the 300s block-duration choice operationalized in v7.8 Change 2 below), the prior seed could still be applied — the seeded RNG can produce any permutation of any length — but the prior seed's provenance documentation explicitly targets the 40-block design. Using it for the 81-block design would invite an audit question about whether the seed was applied to the design for which its provenance was written.
+
+v7.8 re-derives the seed using the same deterministic method, anchored on commit `f5bd702` (the v7.7 amendment, the most recent commit at which all pre-flight gates for the v7.5+ confirmatory campaign were cleared). This anchor:
+
+- Pre-dates any confirmatory data (no data has been collected since the v7.7 amendment was committed)
+- Post-dates all design decisions (v7.5 cell design + v7.6 nvpmodel + v7.7 §9 protocol)
+- Cannot be construed as post-hoc seed selection: there is no campaign data against which to evaluate seed alternatives
+
+The new seed (`1990185399`) replaces the prior seed (`441756681`) in `code/analysis/block_order_seed.txt`. The change is also documented in `code/analysis/block_order_seed_provenance.md` with both the new and prior derivations side-by-side.
+
+---
+
+### Change 1: Block-order seed value
+
+The contents of `code/analysis/block_order_seed.txt` are updated from `441756681` to `1990185399`. The new value is derived by:
+seed = uint32(first_8_hex_chars(SHA256("f5bd702d82818348c6f606864cf6c0d720751797")))
+= uint32(0x769fd1b7)
+= 1990185399
+
+Reproducibility one-liner:
+
+```bash
+echo -n "$(git rev-parse f5bd702)" | sha256sum | awk '{print $1}' | head -c 8
+```
+
+This produces `769fd1b7`, which interpreted as a hex uint32 equals `1990185399`. The git rev-parse is deterministic for any clone of the public repository; the seed derivation is therefore externally reproducible by any auditor.
+
+### Change 2: Block-duration operationalization for v7.5+ campaign
+
+The v7.5+ confirmatory campaign uses **300-second blocks** as the unit of randomization and block-level measurement:
+
+- Each block produces ~60 candidate transitions (300 s × 1 cycle / 10 s × 2 transitions/cycle = 60).
+- Each cell (pipeline × condition) requires 500 included transitions → ~9 blocks per cell (allowing some excluded transitions per §11 criteria and v7.6 §11 classifier-instability disclosure).
+- 9 cells × ~9 blocks per cell = **~81 blocks total**.
+- Block order across the 81 blocks is randomly permuted using the seeded RNG (Change 1 above), interleaving cells throughout the campaign.
+
+The 300-second choice maximizes block-level interleaving for time-of-day / thermal drift mitigation. Alternative durations considered: 600s (45 blocks total) and 1200s (27 blocks total). All durations produce the same total wall time (~7.5 hours); 300s gives maximum resilience against single-block failures (each block failure costs 1/9 of a cell, not 1/3).
+
+§7's original "blocks of 50 trials per condition" language is reinterpreted as "approximately 50-60 transitions per block at v7.3 burst protocol" without modification to the formal §7 text. The 81-block total replaces the v7-era 40-block design (which was never used for data collection).
+
+### Change 3: Cross-reference and audit transparency
+
+`code/analysis/block_order_seed_provenance.md` is updated to include:
+
+1. The new seed value, derivation method, anchor commit, and rationale (per Change 1).
+2. The 81-block design context (per Change 2).
+3. A "Prior seed" section that records the old seed (`441756681`, commit `8c48e19`) with the explicit note that no data was collected under it and the prior value remains in git history for audit transparency.
+
+The file is updated in-place rather than as a parallel-versioned file, to keep the seed source-of-truth singular. The git history of the file preserves the prior seed's full record.
+
+---
+
+### What is NOT changed by this amendment
+
+- §1 research question
+- §2 hypotheses (H1' through H7' from v7.6, unchanged in v7.7)
+- §3 trial count (n=500 transitions per cell)
+- §4 classification task
+- §5 pipelines
+- §6 measurement configuration (nvpmodel mode 3 per v7.6)
+- §7 randomization-and-blocking principle (block ordering remains randomized via a seeded RNG; only the seed value and block-count are re-operationalized)
+- §8 stress conditions (idle, i2c-contention, cpu-stress per v7.5)
+- §9 parity gate (per-phase under burst per v7.7)
+- §10 Phase-B locks
+- §11 trial-level and cell-level criteria (v7.6 classifier-instability disclosure unchanged)
+- §12 statistical machinery
+- §13, §14
+- All prior amendments v2 through v7.7
+
+The seed-derivation method is preserved across v7.8 — the same `uint32(first_8_hex_chars(SHA256(commit_hash)))` mechanism is used, with only the anchor commit changing.
+
+---
+
+### Procedural lessons recorded in this amendment
+
+1. **Seed derivation must be tied to the design it serves.** The v7-era seed was correctly derived for its design but became mismatched when v7.5 redesigned the campaign. Future redesigns that change block count, cell count, or randomization scope should trigger a corresponding seed re-derivation (with a deterministic anchor and an audit-defensible rationale).
+
+2. **In-place file updates with git-history transparency are acceptable for pre-registered artifacts when no data has been collected.** Replacing a seed file alongside an amendment that explicitly documents the change preserves both the audit chain (via git history) and the source-of-truth (via the file's current contents).
+
+3. **Anchor-commit choice matters.** Anchoring on a recent amendment commit, rather than an arbitrary recent commit, ensures that the seed's pre-existence relative to data is unambiguous — and that the anchor itself is externally timestamped (via the amendment's Zenodo DOI).
+
+---
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-26-v7-8`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
