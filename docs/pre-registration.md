@@ -2255,7 +2255,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-26 (v7.8): Block-order seed re-derivation for v7.5+ confirmatory campaign design
 
-**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20401819 (https://doi.org/10.5281/zenodo.20401819).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
