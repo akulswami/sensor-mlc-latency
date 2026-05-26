@@ -46,6 +46,31 @@ EXPECTED_VERSION="0.13.12"
 STRESS_METHOD=matrixprod               # 3x3 matrix products
 PID_FILE=/tmp/run_stress.pid
 
+# I2C contention parameters (per pre-reg amendment v7.5 candidate).
+#
+# Mechanism: N parallel instances of i2c_hammer (a tight C program that
+# does back-to-back ioctl-based reads of WHO_AM_I from the sensor under
+# test). Earlier shell-loop versions (sudo i2cget in a while loop) failed
+# to drive bus contention because sudo overhead dominated; i2c_hammer
+# eliminates that.
+#
+# Empirical sweep on 2026-05-25 with i2c_hammer (n=1000 reads each):
+#   N=0 (idle):  median 300us
+#   N=1:         median 417us  (+39%)
+#   N=2:         median 498us  (+66%)
+#   N=3:         median 623us  (+108%)  <-- chosen
+#   N=4:         median 733us  (+144%)
+#   N=6:         median 977us  (+226%)
+#   N=8:         median 1242us (+314%)
+#
+# N=3 is chosen as a defensibly minimal contention that doubles the median.
+# It models a real-world scenario of 3 sensors sharing an I2C bus.
+I2C_CONTENTION_N=3
+I2C_CONTENTION_BUS=7
+I2C_CONTENTION_ADDR=0x6a
+I2C_CONTENTION_HAMMER_BIN=/home/akulswami/sensor-mlc-latency/code/jetson/sensor_bringup/i2c_hammer
+I2C_CONTENTION_PIDS_FILE=/tmp/run_stress_i2c_pids.txt
+
 # Verify stress-ng matches the pinned version.
 verify_version() {
     local actual
@@ -157,6 +182,79 @@ verify_stress() {
     fi
 }
 
+# Start I2C contention workload.
+# Spawns I2C_CONTENTION_N parallel processes each doing back-to-back i2cget
+# reads of WHO_AM_I from the sensor under test. Per pre-reg amendment v7.5
+# candidate: a real-world scenario where multiple processes contend for the
+# same I2C bus.
+start_i2c_contention() {
+    local n="${1:-$I2C_CONTENTION_N}"
+
+    # Refuse if already running
+    if [[ -f "$I2C_CONTENTION_PIDS_FILE" ]]; then
+        echo "ERROR: i2c contention pids file exists. Stop first with: $0 stop-i2c-contention" >&2
+        return 1
+    fi
+
+    if [[ ! -x "$I2C_CONTENTION_HAMMER_BIN" ]]; then
+        echo "ERROR: i2c_hammer binary not found at $I2C_CONTENTION_HAMMER_BIN" >&2
+        echo "       Build it with: cd $(dirname $I2C_CONTENTION_HAMMER_BIN) && gcc -O2 -o i2c_hammer i2c_hammer.c" >&2
+        return 1
+    fi
+
+    : > "$I2C_CONTENTION_PIDS_FILE"
+
+    echo "Starting $n parallel i2c_hammer processes on bus $I2C_CONTENTION_BUS addr $I2C_CONTENTION_ADDR..." >&2
+    for ((i=1; i<=n; i++)); do
+        nohup "$I2C_CONTENTION_HAMMER_BIN" "$I2C_CONTENTION_BUS" "$I2C_CONTENTION_ADDR" \
+            </dev/null >/dev/null 2>&1 &
+        local pid=$!
+        disown $pid 2>/dev/null || true
+        echo "$pid" >> "$I2C_CONTENTION_PIDS_FILE"
+    done
+
+    sleep 1  # let hammers start
+    echo "Started $n i2c_hammer processes; pids in $I2C_CONTENTION_PIDS_FILE." >&2
+    return 0
+}
+
+# Stop the i2c contention workload.
+stop_i2c_contention() {
+    if [[ ! -f "$I2C_CONTENTION_PIDS_FILE" ]]; then
+        echo "No i2c contention pids file; nothing to stop." >&2
+        return 0
+    fi
+
+    while IFS= read -r pid; do
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            sudo kill -KILL "$pid" 2>/dev/null || true
+        fi
+    done < "$I2C_CONTENTION_PIDS_FILE"
+
+    # Belt-and-suspenders: kill any orphaned i2c_hammer processes
+    sudo pkill -KILL -x i2c_hammer 2>/dev/null || true
+
+    rm -f "$I2C_CONTENTION_PIDS_FILE"
+    echo "Stopped i2c contention." >&2
+    return 0
+}
+
+# Verify i2c contention is active: count running processes matching the
+# i2cget-loop pattern. Per pre-reg v7.5 candidate: a block under
+# i2c-contention condition must show >=I2C_CONTENTION_N active i2cget loops.
+verify_i2c_contention() {
+    local n_running
+    n_running=$(pgrep -c -x i2c_hammer 2>/dev/null || echo 0)
+    echo "I2C contention: $n_running active i2c_hammer processes (target: $I2C_CONTENTION_N)" >&2
+    if [[ "$n_running" -ge "$I2C_CONTENTION_N" ]]; then
+        echo "I2C-CONTENTION verify: PASS" >&2
+        return 0
+    else
+        echo "I2C-CONTENTION verify: FAIL (only $n_running running, need $I2C_CONTENTION_N)" >&2
+        return 1
+    fi
+}
+
 # Verify idle (no-stress) condition: <10% non-harness CPU.
 # Per §8: idle blocks above 10% mean CPU utilization are flagged.
 verify_idle() {
@@ -186,11 +284,14 @@ verify_idle() {
 usage() {
     cat <<USAGEMSG
 Usage:
-  $0 start [duration_sec]   Start stress-ng (optionally with timeout)
-  $0 stop                   Stop any running stress-ng
-  $0 verify-stress          Check that CPU is currently >=95% utilized
-  $0 verify-idle            Check that CPU is currently <10% utilized
-  $0 --help                 Print this message
+  $0 start [duration_sec]    Start stress-ng (optionally with timeout)
+  $0 stop                    Stop any running stress-ng
+  $0 verify-stress           Check that CPU is currently >=95% utilized
+  $0 verify-idle             Check that CPU is currently <10% utilized
+  $0 start-i2c-contention    Start I2C contention (per v7.5 candidate)
+  $0 stop-i2c-contention     Stop I2C contention loops
+  $0 verify-i2c-contention   Check that I2C contention is active
+  $0 --help                  Print this message
 
 Environment:
   Pinned: $STRESS_NG_BIN version $EXPECTED_VERSION
@@ -200,10 +301,13 @@ USAGEMSG
 }
 
 case "${1:-}" in
-    start)         shift; start_stress "$@" ;;
-    stop)          stop_stress ;;
-    verify-stress) verify_stress ;;
-    verify-idle)   verify_idle ;;
-    --help|-h|"")  usage ;;
-    *)             echo "Unknown subcommand: $1" >&2; usage; exit 2 ;;
+    start)                  shift; start_stress "$@" ;;
+    stop)                   stop_stress ;;
+    verify-stress)          verify_stress ;;
+    verify-idle)            verify_idle ;;
+    start-i2c-contention)   shift; start_i2c_contention "$@" ;;
+    stop-i2c-contention)    stop_i2c_contention ;;
+    verify-i2c-contention)  verify_i2c_contention ;;
+    --help|-h|"")           usage ;;
+    *)                      echo "Unknown subcommand: $1" >&2; usage; exit 2 ;;
 esac

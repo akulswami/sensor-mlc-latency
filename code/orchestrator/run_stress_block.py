@@ -99,15 +99,26 @@ from run_session_parity import (
     verify_jetson_state_parity,
 )
 
-# Jetson binary paths
+# Jetson binary paths.
+#
+# JETSON_REPO uses '~' which resolves to the SSH user's home (akulswami).
+# JETSON_REPO_ABS is the absolute path; required when constructing commands
+# that run inside a `sudo bash -c '...'` shell (since the inner shell runs as
+# root and '~' would resolve to /root/, which doesn't have the repo).
+JETSON_REPO_ABS = "/home/akulswami/sensor-mlc-latency"
+JETSON_DATA_BASE_ABS = f"{JETSON_REPO_ABS}/data/training"
+
 JETSON_HOST_PIPELINE_PARITY = (
-    f"{JETSON_REPO}/code/jetson/host_inference/host_pipeline_parity"
+    f"{JETSON_REPO_ABS}/code/jetson/host_inference/host_pipeline_parity"
 )
 JETSON_LATENCY_TEST_MLC_W75 = (
-    f"{JETSON_REPO}/code/jetson/mlc_pipeline/latency_test_mlc_w75"
+    f"{JETSON_REPO_ABS}/code/jetson/mlc_pipeline/latency_test_mlc_w75"
 )
-JETSON_TREE_W75 = f"{JETSON_REPO}/code/mlc_config/tree_w75.json"
-JETSON_RUN_STRESS_SH = f"{JETSON_REPO}/code/stress/run_stress.sh"
+JETSON_LATENCY_TEST_MLC_BINARY_W75 = (
+    f"{JETSON_REPO_ABS}/code/jetson/mlc_pipeline/latency_test_mlc_binary_w75"
+)
+JETSON_TREE_W75 = f"{JETSON_REPO_ABS}/code/mlc_config/tree_w75.json"
+JETSON_RUN_STRESS_SH = f"{JETSON_REPO_ABS}/code/stress/run_stress.sh"
 
 # Tegrastats output parsed for throttling indicators
 THROTTLE_INDICATORS = ["thermal_throttling", "thr@", "Throttled", "throttling"]
@@ -125,7 +136,10 @@ def run_block(args) -> int:
         block_name += "-btest"
 
     block_local = Path(LOCAL_DATA_BASE) / "latency-experiment" / block_name
-    block_remote = f"{JETSON_DATA_BASE}/latency-experiment/{block_name}"
+    # Use absolute path on Jetson side because the pipeline binary's stdout/stderr
+    # is redirected to a file under this path from within a `sudo bash -c '...'`
+    # shell where '~' would resolve to /root/.
+    block_remote = f"{JETSON_DATA_BASE_ABS}/latency-experiment/{block_name}"
     block_local.mkdir(parents=True, exist_ok=True)
     ssh(f"mkdir -p {block_remote}")
 
@@ -229,37 +243,72 @@ def run_block(args) -> int:
         print(f"[block-runner]   sync_edge fired at {sync_ns} ns")
         time.sleep(0.1)
 
-        # 10. Start stress if condition is stress
-        if args.condition == "stress":
-            print("[block-runner] Starting stress-ng...")
-            ssh(
-                f"sudo {JETSON_RUN_STRESS_SH} start {duration_sec + 5}",
-                check=False,
-            )
-            time.sleep(1.0)  # let stress-ng spool up
+        # NEW ORDER (per stress-block restructure 2026-05-25):
+        #   10. Start pipeline binary in background
+        #   11. Start servo_sweep in background
+        #   12. Init grace period (3s) for pipeline to finish startup
+        #   13. Verify pipeline still alive after init grace
+        #   14. Verify sensor still reachable
+        #   15. Start contention (if applicable)
+        #   16. Verify contention is active
+        #   17. Wait for pipeline binary to complete via `wait` over SSH
+        #
+        # This ordering prevents the pipeline binary's init sequence
+        # (WHO_AM_I check, SW_RESET, sensor configuration) from being
+        # disrupted by contention. Contention only runs during the
+        # measurement window of the block, after init completes.
 
-        # 11. Verify CPU state per §8
-        print(f"[block-runner] Verifying CPU state (expected: {args.condition})...")
-        verify_cmd = (
-            f"verify-stress" if args.condition == "stress" else f"verify-idle"
-        )
-        r = ssh(
-            f"sudo {JETSON_RUN_STRESS_SH} {verify_cmd}",
-            capture=True, check=False,
-        )
-        cpu_ok = (r.returncode == 0)
-        block_metadata["cpu_verification_passed"] = cpu_ok
-        block_metadata["cpu_verification_output"] = r.stderr.strip()
-        if cpu_ok:
-            print(f"[block-runner]   CPU verification: PASS")
+        INIT_GRACE_SEC = 3.0
+
+        # 10-11. Start pipeline binary AND servo_sweep in background.
+        # The pipeline binary owns Pin 11; servo_sweep owns the PCA9685.
+        # Both must run for the full block duration. We wrap the pipeline
+        # binary in a shell that writes its exit code to a known file
+        # (the SSH "wait $pid" pattern returns 127 because the pid isn't a
+        # child of the new SSH shell).
+        pipeline_remote_log = f"{block_remote}/pipeline.log"
+        pipeline_exit_file = f"/tmp/pipeline_exit_{args.block_id}.txt"
+        # Clear any stale exit file before launch
+        ssh(f"rm -f {pipeline_exit_file}", check=False)
+
+        if args.pipeline == "host":
+            pipeline_bin = JETSON_HOST_PIPELINE_PARITY
+            pipeline_extra_args = f"--tree {JETSON_TREE_W75}"
+        elif args.pipeline == "mlc":
+            pipeline_bin = JETSON_LATENCY_TEST_MLC_W75
+            pipeline_extra_args = ""
+        elif args.pipeline == "mlc-binary":
+            pipeline_bin = JETSON_LATENCY_TEST_MLC_BINARY_W75
+            pipeline_extra_args = ""
         else:
-            print(f"[block-runner]   CPU verification: FAIL")
-            print(f"[block-runner]   Output: {r.stderr.strip()}")
-            # Block continues; this is flagged but doesn't abort
+            raise ValueError(f"unknown pipeline: {args.pipeline}")
 
-        # 12. Start servo_sweep --mode burst
+        pipeline_inner = (
+            f"timeout {duration_sec} "
+            f"{pipeline_bin} {pipeline_extra_args} "
+            f"> {pipeline_remote_log} 2>&1; "
+            f"echo $? > {pipeline_exit_file}"
+        )
+
+        pipeline_cmd = (
+            f"sudo nohup bash -c '{pipeline_inner}' "
+            f"</dev/null >/dev/null 2>&1 & "
+            f"echo $!"
+        )
+
+        print(f"[block-runner] Starting {args.pipeline} pipeline binary in background...")
+        r = ssh(pipeline_cmd, check=False, capture=True)
+        pipeline_pid_str = r.stdout.strip().split("\n")[-1] if r.stdout else ""
+        try:
+            pipeline_pid = int(pipeline_pid_str)
+        except ValueError:
+            pipeline_pid = None
+            print(f"[block-runner] WARNING: could not parse pipeline pid: {pipeline_pid_str!r}")
+        block_metadata["pipeline_pid"] = pipeline_pid
+        print(f"[block-runner]   pipeline binary pid: {pipeline_pid}")
+
         sweep_remote_log = f"{block_remote}/sweep.log"
-        print("[block-runner] Starting servo_sweep --mode burst...")
+        print("[block-runner] Starting servo_sweep --mode burst in background...")
         sweep_cmd = (
             f"sudo nohup {JETSON_SERVO_SWEEP} "
             f"--mode burst "
@@ -270,38 +319,134 @@ def run_block(args) -> int:
             f"> /dev/null 2>&1 &"
         )
         ssh(sweep_cmd)
-        time.sleep(0.3)
 
-        # 13. Start the pipeline binary (foreground for the block duration)
-        pipeline_remote_log = f"{block_remote}/pipeline.log"
-        if args.pipeline == "host":
-            pipeline_cmd = (
-                f"sudo timeout {duration_sec} "
-                f"{JETSON_HOST_PIPELINE_PARITY} "
-                f"--tree {JETSON_TREE_W75} "
-                f"> {pipeline_remote_log} 2>&1"
+        # 12. Init grace: give the pipeline binary time to finish startup.
+        print(f"[block-runner] Init grace ({INIT_GRACE_SEC}s) for pipeline startup...")
+        time.sleep(INIT_GRACE_SEC)
+
+        # 13. Verify pipeline binary is still alive (didn't fail init).
+        if pipeline_pid is not None:
+            r = ssh(f"kill -0 {pipeline_pid} 2>&1 && echo ALIVE || echo DEAD",
+                    capture=True, check=False)
+            pipeline_alive = "ALIVE" in r.stdout
+            block_metadata["pipeline_alive_after_init"] = pipeline_alive
+            if not pipeline_alive:
+                print(f"[block-runner]   pipeline binary DIED during init")
+                # Read pipeline log for context
+                r2 = ssh(f"cat {pipeline_remote_log} 2>&1 | tail -5",
+                         capture=True, check=False)
+                print(f"[block-runner]   pipeline log tail: {r2.stdout.strip()}")
+            else:
+                print(f"[block-runner]   pipeline binary alive after {INIT_GRACE_SEC}s init grace")
+        else:
+            pipeline_alive = False
+            block_metadata["pipeline_alive_after_init"] = False
+
+        # 14. Verify sensor still reachable after pipeline init.
+        r = ssh("sudo i2cdetect -y -r 7 2>/dev/null | grep -q 6a && echo OK || echo DEAD",
+                capture=True, check=False)
+        sensor_post_init = "OK" in r.stdout
+        block_metadata["sensor_reachable_after_init"] = sensor_post_init
+        if not sensor_post_init:
+            print(f"[block-runner]   WARNING: sensor unreachable after pipeline init")
+        else:
+            print(f"[block-runner]   sensor still reachable after init")
+
+        # 15. Start contention/stress AFTER pipeline init.
+        contention_start_jetson_monotonic_ns = None
+        if args.condition in ("stress", "i2c-contention"):
+            # Get monotonic ns just before starting contention.
+            # Uses code/jetson/sensor_bringup/print_monotonic_ns which emits
+            # clock_gettime(CLOCK_MONOTONIC) as a single integer line.
+            r_ts = ssh(
+                f"{JETSON_REPO_ABS}/code/jetson/sensor_bringup/print_monotonic_ns",
+                capture=True, check=False,
             )
-        else:  # mlc
-            pipeline_cmd = (
-                f"sudo timeout {duration_sec} "
-                f"{JETSON_LATENCY_TEST_MLC_W75} "
-                f"> {pipeline_remote_log} 2>&1"
+            try:
+                contention_start_jetson_monotonic_ns = int(r_ts.stdout.strip())
+            except ValueError:
+                print(f"[block-runner] WARNING: could not parse monotonic ns: "
+                      f"{r_ts.stdout!r}")
+                contention_start_jetson_monotonic_ns = None
+
+            if args.condition == "stress":
+                # Reduce stress duration to fit remaining block time
+                remaining = duration_sec - INIT_GRACE_SEC
+                print(f"[block-runner] Starting stress-ng for {remaining:.0f}s...")
+                ssh(
+                    f"sudo {JETSON_RUN_STRESS_SH} start {int(remaining) + 2}",
+                    check=False,
+                )
+            else:  # i2c-contention
+                print("[block-runner] Starting i2c contention (N=3 i2c_hammer)...")
+                ssh(
+                    f"sudo {JETSON_RUN_STRESS_SH} start-i2c-contention",
+                    check=False,
+                )
+            time.sleep(1.0)  # let contention spin up
+
+        block_metadata["contention_start_jetson_monotonic_ns"] = contention_start_jetson_monotonic_ns
+
+        # 16. Verify the contention state.
+        print(f"[block-runner] Verifying state (expected: {args.condition})...")
+        if args.condition == "stress":
+            verify_cmd = "verify-stress"
+        elif args.condition == "i2c-contention":
+            verify_cmd = "verify-i2c-contention"
+        else:
+            verify_cmd = "verify-idle"
+
+        r = ssh(
+            f"sudo {JETSON_RUN_STRESS_SH} {verify_cmd}",
+            capture=True, check=False,
+        )
+        cpu_ok = (r.returncode == 0)
+        block_metadata["cpu_verification_passed"] = cpu_ok
+        block_metadata["cpu_verification_output"] = r.stderr.strip()
+        if cpu_ok:
+            print(f"[block-runner]   {args.condition} verification: PASS")
+        else:
+            print(f"[block-runner]   {args.condition} verification: FAIL")
+            print(f"[block-runner]   Output: {r.stderr.strip()}")
+
+        # 17. Wait for pipeline binary to complete (either timeout or early exit).
+        # Poll for the pid being gone, then read the exit code from the file
+        # the launch shell writes when the binary finishes.
+        if pipeline_pid is not None:
+            print(f"[block-runner] Waiting for pipeline binary (pid {pipeline_pid}) to exit...")
+            ssh(
+                f"while kill -0 {pipeline_pid} 2>/dev/null; do sleep 0.5; done",
+                capture=False, check=False,
             )
+            # Read the exit code from the file
+            r = ssh(f"cat {pipeline_exit_file} 2>/dev/null",
+                    capture=True, check=False)
+            try:
+                pipeline_exit_code = int(r.stdout.strip())
+            except (ValueError, AttributeError):
+                pipeline_exit_code = -1
+                print(f"[block-runner] WARNING: could not parse exit code from "
+                      f"{pipeline_exit_file}: {r.stdout!r}")
+            # Cleanup the exit file
+            ssh(f"rm -f {pipeline_exit_file}", check=False)
+            if pipeline_exit_code not in (0, 124):
+                print(
+                    f"[block-runner] WARNING: pipeline binary exited with code "
+                    f"{pipeline_exit_code}"
+                )
+        else:
+            pipeline_exit_code = -1
 
-        print(f"[block-runner] Starting {args.pipeline} pipeline binary...")
-        r = ssh(pipeline_cmd, check=False, capture=True)
-        if r.returncode not in (0, 124):  # 124 = timeout (expected)
-            print(
-                f"[block-runner] WARNING: pipeline binary exited with code "
-                f"{r.returncode}"
-            )
+        block_metadata["pipeline_exit_code"] = pipeline_exit_code
 
-        block_metadata["pipeline_exit_code"] = r.returncode
-
-        # 14-15. Cleanup: stop background processes
+        # 14-15. Cleanup: stop background stress sources
         if args.condition == "stress":
             print("[block-runner] Stopping stress-ng...")
             ssh(f"sudo {JETSON_RUN_STRESS_SH} stop", check=False)
+            time.sleep(0.3)
+        elif args.condition == "i2c-contention":
+            print("[block-runner] Stopping i2c contention...")
+            ssh(f"sudo {JETSON_RUN_STRESS_SH} stop-i2c-contention", check=False)
             time.sleep(0.3)
 
         ssh("pgrep -x servo_sweep > /dev/null && sudo pkill servo_sweep || true",
@@ -398,13 +543,16 @@ def main():
         help="Block ID (1-40 in pre-registered campaign)."
     )
     parser.add_argument(
-        "--condition", choices=["idle", "stress"], required=True,
-        help="CPU stress condition (per pre-reg §8)."
+        "--condition", choices=["idle", "stress", "i2c-contention"], required=True,
+        help="Stress condition per pre-reg §8 (idle / stress) or v7.5 "
+             "candidate amendment (i2c-contention: N=3 parallel i2c_hammer "
+             "processes on bus 7)."
     )
     parser.add_argument(
-        "--pipeline", choices=["host", "mlc"], required=True,
-        help="Which pipeline drives D1 (host_pipeline_parity or "
-             "latency_test_mlc_w75)."
+        "--pipeline", choices=["host", "mlc", "mlc-binary"], required=True,
+        help="Which pipeline drives D1: host_pipeline_parity, "
+             "latency_test_mlc_w75 (3-transaction bank-switch read), or "
+             "latency_test_mlc_binary_w75 (0-transaction binary-fast variant)."
     )
     parser.add_argument(
         "--duration", type=int, default=300,
