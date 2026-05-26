@@ -65,6 +65,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -123,8 +124,60 @@ JETSON_RUN_STRESS_SH = f"{JETSON_REPO_ABS}/code/stress/run_stress.sh"
 # Tegrastats output parsed for throttling indicators
 THROTTLE_INDICATORS = ["thermal_throttling", "thr@", "Throttled", "throttling"]
 
+# jc_eff = percentage of tegrastats CPU-freq samples observed at >= 1700 MHz.
+# Per pre-reg v7.6 (2026-05-26, Zenodo DOI 10.5281/zenodo.20400025) Change 2,
+# blocks with jc_eff < 99% are excluded at the block level. nvpmodel mode 3
+# (MAXN_SUPER_JC, defined in code/jetson/nvpmodel/MAXN_SUPER_JC.snippet) is
+# the required measurement configuration; it pins CPU MIN_FREQ to 1728000
+# so all 6 cores hold max frequency throughout a block. Empirically, blocks
+# captured under mode 3 give jc_eff ~= 100%; blocks captured under default
+# mode 1 (25W) give jc_eff ranging from ~17% to ~100% non-deterministically.
+JC_EFF_THRESHOLD = 99.0
+JC_EFF_MAX_FREQ_KHZ = 1700  # CPU is "at max" if scaling_cur_freq >= this
+
 
 # --- Helpers ---
+
+
+def compute_jc_eff(tegrastats_log_path):
+    """Return (jc_eff_pct, n_samples) computed from a tegrastats.log file.
+
+    jc_eff is the percentage of CPU-freq samples (across all 6 CPUs in
+    every tegrastats line) that are at or above JC_EFF_MAX_FREQ_KHZ.
+    The tegrastats line format includes a CPU block like
+    "CPU [0%@1728,2%@1728,11%@1728,5%@1728,13%@1728,16%@1728]" — we
+    extract each "@<MHz>" value and count.
+
+    Returns (None, 0) if the file is missing, unreadable, or contains
+    no parseable CPU-freq samples.
+    """
+    if not tegrastats_log_path.exists():
+        return (None, 0)
+
+    cpu_block_re = re.compile(r"CPU \[([^\]]+)\]")
+    freq_re = re.compile(r"@(\d+)")
+    n_total = 0
+    n_at_max = 0
+
+    try:
+        with open(tegrastats_log_path) as f:
+            for line in f:
+                m = cpu_block_re.search(line)
+                if not m:
+                    continue
+                for entry in m.group(1).split(","):
+                    fm = freq_re.search(entry)
+                    if not fm:
+                        continue
+                    n_total += 1
+                    if int(fm.group(1)) >= JC_EFF_MAX_FREQ_KHZ:
+                        n_at_max += 1
+    except (OSError, UnicodeDecodeError):
+        return (None, 0)
+
+    if n_total == 0:
+        return (None, 0)
+    return (100.0 * n_at_max / n_total, n_total)
 
 
 def run_block(args) -> int:
@@ -503,9 +556,26 @@ def run_block(args) -> int:
         check=False,
     )
 
+    # 18b. Compute jc_eff per v7.6 Change 2 (jetson_clocks effectiveness)
+    jc_eff_pct, jc_eff_n_samples = compute_jc_eff(tegrastats_local)
+    block_metadata["jc_eff_pct"] = jc_eff_pct
+    block_metadata["jc_eff_n_samples"] = jc_eff_n_samples
+    block_metadata["jc_eff_threshold_pct"] = JC_EFF_THRESHOLD
+    if jc_eff_pct is None:
+        print("[block-runner] jc_eff: unable to compute (tegrastats.log empty or missing)")
+        jc_eff_passed = False
+    else:
+        jc_eff_passed = jc_eff_pct >= JC_EFF_THRESHOLD
+        print(
+            f"[block-runner] jc_eff: {jc_eff_pct:.2f}% "
+            f"(n={jc_eff_n_samples}, threshold {JC_EFF_THRESHOLD}%) "
+            f"{'PASS' if jc_eff_passed else 'FAIL'}"
+        )
+    block_metadata["jc_eff_passed"] = jc_eff_passed
+
     # 19. Compute block-level inclusion verdict
     block_metadata["included"] = (
-        cpu_ok and throttling_events == 0
+        cpu_ok and throttling_events == 0 and jc_eff_passed
     )
     if not block_metadata["included"]:
         reasons = []
@@ -513,6 +583,8 @@ def run_block(args) -> int:
             reasons.append("cpu_verification_failed")
         if throttling_events > 0:
             reasons.append("thermal_throttling")
+        if not jc_eff_passed:
+            reasons.append("jc_eff_below_threshold")
         block_metadata["exclusion_reason"] = ",".join(reasons)
     else:
         block_metadata["exclusion_reason"] = ""
