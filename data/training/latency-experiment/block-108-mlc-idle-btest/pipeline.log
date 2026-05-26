@@ -1,0 +1,20 @@
+Loading 93 MLC config writes...
+MLC config applied. Tap class = 0x04, nontap = 0x00
+INT1_CTRL forced to 0x00 (DRDY routing disabled).
+EMB_FUNC_LIR = 0 (pulsed mode).
+Listening for MLC INT1 events. Ctrl+C to stop.
+Saleae D0=Pin15(INT), D1=Pin11(decision), A0=ground truth.
+Decision rule: binary state transition (0x00 vs non-zero).
+  GPIO toggles on every transition between MLC_OUT_NONTAP
+  and any non-NONTAP class. Sub-class transitions within
+  the non-NONTAP set (e.g. 0x01 -> 0x04) do NOT toggle.
+
+EVENT# TRIAL# host_dt(us)  mlc_src  transition  
+1      1      1042         0x04    STILL->MOTION
+2      2      475          0x00    MOTION->STILL
+3      3      488          0x04    STILL->MOTION
+4      4      460          0x00    MOTION->STILL
+5      5      453          0x04    STILL->MOTION
+6      6      468          0x00    MOTION->STILL
+7      7      462          0x04    STILL->MOTION
+8      8      468          0x00    MOTION->STILL

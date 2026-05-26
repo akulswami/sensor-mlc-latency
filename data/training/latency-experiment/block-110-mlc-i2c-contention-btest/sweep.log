@@ -1,0 +1,10 @@
+# servo_sweep log
+# mode=burst duration=30 min_ticks=102 max_ticks=511 center_ticks=307
+# motion_ms=5000 still_ms=5000 burst_period_ms=1000
+# timestamp = CLOCK_REALTIME microseconds at host i2c_write call
+# actual PWM wire edge appears ~100us after timestamp
+# columns: timestamp_us,event,ticks
+1779757586935017,START,307
+1779757587135786,MOTION_PHASE_START,0
+1779757587135829,TO_MAX,511
+1779757588136640,TO_MIN,102

@@ -1,0 +1,14 @@
+Sensor: 208 Hz DRDY streaming.
+Tree:   window=75  mlc_odr=104  decim=2  features=2  nodes=3
+Class codes: still=0  motion=4
+
+trans#   t_int_us     new_class  host_dt_us  
+Warmup complete (75 MLC samples, 721.2 ms wall).
+1        26725781662  4          339         
+2        26726488035  0          310         
+3        26727194409  4          316         
+4        26731432706  0          597         
+5        26735670944  4          563         
+6        26742028180  0          613         
+7        26745560116  4          692         
+8        26751917760  0          631         

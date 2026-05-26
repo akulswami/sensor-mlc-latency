@@ -1,0 +1,21 @@
+{
+  "block_id": 4,
+  "block_name": "block-004-host-stress-btest",
+  "pipeline": "host",
+  "condition": "stress",
+  "duration_sec": 30,
+  "btest": true,
+  "started_at": "2026-05-25T12:26:57.277666",
+  "mlc_config_header": "mlc_motion_w75.h",
+  "silicon_liveness_mlc_src": "0x00",
+  "tegrastats_pid_file": "/tmp/tegrastats_pid_4.txt",
+  "sync_edge_jetson_monotonic_ns": 698455498313,
+  "cpu_verification_passed": true,
+  "cpu_verification_output": "CPU utilization (2s sample): 100.00%\nSTRESS verify: PASS (utilization >= 95%)",
+  "pipeline_exit_code": 124,
+  "throttling_events": 0,
+  "throttling_sample_lines": [],
+  "included": true,
+  "exclusion_reason": "",
+  "finished_at": "2026-05-25T12:27:45.398441"
+}

@@ -1,0 +1,7 @@
+trial_id,stimulus_type,t_stim_s,t_d0_s,t_d1_s,latency_us,included,exclusion_reason
+0,still_to_motion,2.15201778,2.48496836,2.48578072,812.3600000002896,True,
+1,motion_to_still,7.16520018,8.8425792,8.8433913,812.1000000009815,True,
+2,still_to_motion,12.15974328,12.3741549,12.37474194,587.039999999206,True,
+3,motion_to_still,17.17287692,18.73110808,18.73167582,567.740000001038,True,
+4,still_to_motion,22.16745546,22.2625086,22.26330004,791.4400000004207,True,
+5,motion_to_still,27.18036528,,27.2071451,,False,multiple_d1_in_window
