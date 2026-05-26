@@ -2118,7 +2118,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-26 (v7.7): §9 parity gate re-specified for burst protocol; per-phase ground-truth evaluation; gap criterion replaced with disclosure
 
-**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20401671 (https://doi.org/10.5281/zenodo.20401671).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
