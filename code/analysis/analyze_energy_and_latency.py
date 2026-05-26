@@ -62,23 +62,48 @@ EXPERIMENTAL_VANILLA_BLOCKS = (
 )
 EXPERIMENTAL_CHRT_BLOCKS = {501, 502}  # chrt+taskset smoke
 
-VANILLA_BLOCK_RANGES = PRIMARY_VANILLA_BLOCKS | EXPERIMENTAL_VANILLA_BLOCKS
+# 2026-05-25/26 long-duration smoke blocks. These are 1800-second blocks
+# captured to validate the rig under sustained load and to diagnose the
+# energy-axis methodology. Block 700 was the first 30-min run; subsequent
+# blocks systematically tested the apples-to-apples energy comparison
+# under jetson_clocks-ON conditions (nvpmodel 25W mode).
+#
+# Critical caveat: jetson_clocks state varied across these blocks due to
+# nvpmodel reasserting MIN_FREQ. Empirical jetson_clocks effectiveness
+# (from tegrastats CPU-freq fields, 0% of samples below 1700 MHz means
+# jc was effective; otherwise it was defeated by nvpmodel):
+#   b700 mlc i2c-contention: jc EFFECTIVE (0% below max)
+#   b701 host idle:          jc DEFEATED  (~50% below max)
+#   b702 mlc idle:           jc EFFECTIVE
+#   b703 host idle:          jc EFFECTIVE
+LONG_DURATION_BLOCKS = {700, 701, 702, 703}
+
+VANILLA_BLOCK_RANGES = PRIMARY_VANILLA_BLOCKS | EXPERIMENTAL_VANILLA_BLOCKS | LONG_DURATION_BLOCKS
 CHRT_BLOCK_RANGES = PRIMARY_CHRT_BLOCKS | EXPERIMENTAL_CHRT_BLOCKS
 
 def _block_campaign(bid):
-    """Return 'primary' or 'experimental' for a given block ID."""
+    """Return 'primary', 'experimental', or 'long-duration' for a given block ID."""
     if bid in PRIMARY_VANILLA_BLOCKS or bid in PRIMARY_CHRT_BLOCKS:
         return "primary"
+    if bid in LONG_DURATION_BLOCKS:
+        return "long-duration"
     if bid in EXPERIMENTAL_VANILLA_BLOCKS or bid in EXPERIMENTAL_CHRT_BLOCKS:
         return "experimental"
     return "unknown"
 
 
 def block_to_cell(block_name):
-    """Parse 'block-{id}-{pipeline}-{condition}-btest' into a 4-tuple."""
-    if not block_name.startswith("block-") or not block_name.endswith("-btest"):
+    """Parse 'block-{id}-{pipeline}-{condition}[-btest]' into a 5-tuple.
+
+    The '-btest' suffix marks 30-second exploration blocks. Long-duration
+    blocks (e.g. 700-703) omit the suffix.
+    """
+    if not block_name.startswith("block-"):
         return None
-    body = block_name[len("block-"):-len("-btest")]
+    if block_name.endswith("-btest"):
+        body = block_name[len("block-"):-len("-btest")]
+    else:
+        body = block_name[len("block-"):]
     parts = body.split("-")
     if len(parts) < 3:
         return None
@@ -176,10 +201,12 @@ def main():
     # for the block-processing loop below.
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-base", default="data/training/latency-experiment")
-    parser.add_argument("--include-experimental", choices=["primary", "all"],
+    parser.add_argument("--include-experimental", choices=["primary", "long-duration", "all"],
                         default="primary",
-                        help="primary (default): include only the planned 2026-05-25 "
-                             "btest campaign blocks (301-312, 402-407, 601-618). "
+                        help="primary (default): only the planned 2026-05-25 btest campaign blocks "
+                             "(301-312, 402-407, 601-618). "
+                             "long-duration: also include the 2026-05-25/26 30-min smoke blocks "
+                             "(700-703). "
                              "all: include pre-restructure smoke + validation blocks too.")
     parser.add_argument("--out", default=None,
                         help="Path to write markdown analysis output (default: stdout)")
@@ -194,14 +221,25 @@ def main():
     cells = defaultdict(lambda: {"latency": [], "energy_mw": [], "blocks": []})
     skipped = []
 
-    for block_dir in sorted(data_base.glob("block-*-btest")):
+    for block_dir in sorted(data_base.glob("block-*")):
         cell = block_to_cell(block_dir.name)
         if cell is None:
             skipped.append((block_dir.name, "could not parse name"))
             continue
         bid, pipeline, condition, scheduling, campaign = cell
-        if include_experimental != "all" and campaign != "primary":
-            continue
+        if include_experimental == "primary":
+            if campaign != "primary":
+                continue
+        elif include_experimental == "long-duration":
+            # Per-cell aggregation: ONLY primary blocks (long-duration is
+            # reported per-block separately below, not mixed in).
+            if campaign != "primary":
+                continue
+        elif include_experimental == "all":
+            # All blocks contribute to per-cell aggregates EXCEPT long-duration,
+            # which is reported per-block.
+            if campaign == "long-duration":
+                continue
         key = (pipeline, condition, scheduling)
         cells[key]["blocks"].append(bid)
         cells[key]["latency"].extend(parse_trials(block_dir / "trials.csv"))
@@ -223,8 +261,17 @@ def main():
     if include_experimental == "primary":
         p("Includes only the planned campaign blocks: vanilla 301-312 + 402-407, "
           "chrt+taskset 601-618. Pre-restructure smoke (001-005, 101-112), "
-          "restructure-validation (200-202, 401), and chrt+taskset smoke (501-502) "
-          "are EXCLUDED.")
+          "restructure-validation (200-202, 401), chrt+taskset smoke (501-502), and "
+          "long-duration smoke (700-703) are EXCLUDED.")
+    elif include_experimental == "long-duration":
+        p("Includes the planned campaign blocks AND the 2026-05-25/26 30-min "
+          "long-duration smoke blocks (700-703). The long-duration blocks were "
+          "captured to validate the rig under sustained load and to investigate "
+          "the energy-axis methodology. NOTE: jetson_clocks effectiveness varied "
+          "across these blocks due to nvpmodel reassertion of MIN_FREQ. b700, "
+          "b702, b703 had jetson_clocks effective throughout; b701 did not. "
+          "See CAMPAIGN_SUMMARY.md \"Long-duration smoke findings\" for the "
+          "apples-to-apples comparison.")
     else:
         p("Includes ALL blocks under the data base, including pre-restructure "
           "and smoke/validation blocks. Per-cell averages may mix orchestrator "
@@ -334,6 +381,93 @@ def main():
                   f"{median(v_lat):.0f} → {median(c_lat):.0f} µs | "
                   f"{mean(v_eng):.0f} → {mean(c_eng):.0f} mW |")
     p("")
+
+    # Long-duration smoke per-block table (each block reported individually
+    # because mixing btest n=18 cells with long-duration n=316+ cells in the
+    # same aggregate cell would be a category error: they were collected at
+    # different durations and under different jetson_clocks states).
+    if include_experimental in ("long-duration", "all"):
+        ld_blocks_with_data = []
+        for block_dir in sorted(data_base.glob("block-*")):
+            cell = block_to_cell(block_dir.name)
+            if cell is None:
+                continue
+            bid, pipeline, condition, scheduling, campaign = cell
+            if campaign != "long-duration":
+                continue
+            # Read per-block data (not cell-aggregated)
+            lats = list(parse_trials(block_dir / "trials.csv"))
+            engs = list(parse_tegrastats(block_dir / "tegrastats.log"))
+            # Read jc effectiveness from tegrastats (% samples with all CPU freqs >= 1700 MHz)
+            import re
+            jc_effective = None
+            try:
+                content = (block_dir / "tegrastats.log").read_text()
+                n_total = 0
+                n_below = 0
+                for line in content.splitlines():
+                    m = re.search(r"CPU \[([^\]]+)\]", line)
+                    if m:
+                        for entry in m.group(1).split(","):
+                            f = re.search(r"@(\d+)", entry)
+                            if f:
+                                n_total += 1
+                                if int(f.group(1)) < 1700:
+                                    n_below += 1
+                if n_total > 0:
+                    jc_effective = 100.0 * (n_total - n_below) / n_total
+            except Exception:
+                pass
+            ld_blocks_with_data.append((bid, pipeline, condition, lats, engs, jc_effective))
+
+        if ld_blocks_with_data:
+            p("## Long-duration smoke per-block (each block reported individually)")
+            p("")
+            p("These are 30-minute blocks captured to investigate the energy-axis "
+              "methodology. They are reported per-block (not aggregated) because "
+              "the jetson_clocks state varied across blocks; mixing them with "
+              "btest-cell aggregates would be a category error.")
+            p("")
+            p("jc_eff = % of tegrastats CPU-freq samples at >= 1700 MHz (jc effective).")
+            p("100% means jetson_clocks held throughout the block; lower means "
+              "nvpmodel defeated jetson_clocks at points during the block.")
+            p("")
+            p("| Block | Pipeline | Condition | n_lat | lat_med (µs) | n_eng | eng_mean (mW) | eng_sd | jc_eff |")
+            p("|------:|----------|----------------|------:|-------------:|------:|--------------:|-------:|-------:|")
+            for bid, pipeline, condition, lats, engs, jc_eff in ld_blocks_with_data:
+                lat_med = sorted(lats)[len(lats)//2] if lats else None
+                eng_mean = sum(engs) / len(engs) if engs else None
+                if len(engs) > 1:
+                    eng_sd_val = (sum((e - eng_mean)**2 for e in engs) / (len(engs) - 1)) ** 0.5
+                else:
+                    eng_sd_val = 0
+                lat_med_s = f"{lat_med:.0f}" if lat_med is not None else "-"
+                eng_mean_s = f"{eng_mean:.0f}" if eng_mean is not None else "-"
+                jc_eff_s = f"{jc_eff:.1f}%" if jc_eff is not None else "-"
+                p(f"| {bid} | {pipeline} | {condition} | {len(lats)} | {lat_med_s} | "
+                  f"{len(engs)} | {eng_mean_s} | {eng_sd_val:.0f} | {jc_eff_s} |")
+            p("")
+
+            # Apples-to-apples block (both with jc effective, both idle)
+            jc_eff_idle = [(b, p_, c, l, e, j) for b, p_, c, l, e, j in ld_blocks_with_data
+                          if c == "idle" and j is not None and j >= 99.0]
+            if len(jc_eff_idle) >= 2:
+                p("### Apples-to-apples: idle blocks with jc_eff ≈ 100%")
+                p("")
+                for bid, pipeline, condition, lats, engs, jc_eff in jc_eff_idle:
+                    eng_mean = sum(engs) / len(engs) if engs else None
+                    p(f"- **b{bid} {pipeline} {condition}**: energy mean = "
+                      f"{eng_mean:.0f} mW, jc_eff = {jc_eff:.1f}%")
+                # Compute the gap
+                pipelines = sorted(set(p_ for b, p_, c, l, e, j in jc_eff_idle))
+                if "host" in pipelines and "mlc" in pipelines:
+                    host_eng = sum(sum(e)/len(e) for b, p_, c, l, e, j in jc_eff_idle if p_ == "host") / sum(1 for b, p_, c, l, e, j in jc_eff_idle if p_ == "host")
+                    mlc_eng = sum(sum(e)/len(e) for b, p_, c, l, e, j in jc_eff_idle if p_ == "mlc") / sum(1 for b, p_, c, l, e, j in jc_eff_idle if p_ == "mlc")
+                    gap = host_eng - mlc_eng
+                    p("")
+                    p(f"**Gap (host - mlc, idle, jc-effective): {gap:+.0f} mW.** "
+                      f"{'MLC saves' if gap > 50 else 'MLC uses more' if gap < -50 else 'Within noise floor (±50 mW)'}.")
+            p("")
 
     if skipped:
         p("## Skipped blocks")

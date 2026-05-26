@@ -166,6 +166,128 @@ the data tree (see Block Index above) but the orchestrator behavior
 differed and their cells are not directly comparable to the primary
 campaigns.
 
+## Long-duration smoke findings (added 2026-05-26)
+
+After the 59-block btest campaign and v7.5 amendment, four 30-minute
+long-duration smoke blocks were captured to validate the rig under
+sustained load and to investigate the energy-axis methodology. These
+blocks revealed important methodological caveats that affect how
+the btest energy data should be interpreted.
+
+### Block summary
+
+| Block | Pipeline | Condition | Duration | Date/time | jc_eff |
+|------:|----------|----------------|---------:|-----------|-------:|
+| 700 | mlc        | i2c-contention | 30 min | 2026-05-25 22:30 | 100.0% |
+| 701 | host       | idle           | 30 min | 2026-05-25 23:11 | 17.3%  |
+| 702 | mlc        | idle           | 30 min | 2026-05-26 00:13 | 100.0% |
+| 703 | host       | idle           | 30 min | 2026-05-26 08:48 | 100.0% |
+
+`jc_eff` = percentage of tegrastats CPU-freq samples at ≥ 1700 MHz. 100%
+means jetson_clocks held throughout; lower means nvpmodel defeated
+jetson_clocks by reasserting `scaling_min_freq = 729600` at points during
+the block. nvpmodel "25W" mode (the system default) has MIN_FREQ defined
+as 729600, which the kernel periodically restores even after jetson_clocks
+sets min == max == 1728000. **jetson_clocks effectiveness is therefore
+non-deterministic on this rig** unless nvpmodel is reconfigured first.
+
+### Latency and energy per block (long-duration)
+
+| Block | Pipeline | Condition | lat_med (µs) | lat_n | eng_mean (mW) | eng_sd | eng_n |
+|------:|----------|----------------|-------------:|------:|--------------:|-------:|------:|
+| 700 | mlc        | i2c-contention | 1269 | 300 | 6921 | 61 | 3556 |
+| 701 | host       | idle           |  345 | 316 | 5063 | 51 | 3522 |
+| 702 | mlc        | idle           |  477 | 355 | 7014 | 42 | 3554 |
+| 703 | host       | idle           |  317 | 356 | 6982 | 49 | 3551 |
+
+### The energy claim, revisited
+
+The btest data showed `host idle (4799 mW)` vs `mlc idle (4644 mW)` — a
+**+155 mW gap** that was reported in v7.5 §"Energy findings" as
+"directional validation that on-sensor inference saves host energy."
+
+The long-duration smoke data tells a different story when measured
+apples-to-apples:
+
+- **b702 (mlc idle, jc_eff = 100%): 7014 mW**
+- **b703 (host idle, jc_eff = 100%): 6982 mW**
+- **Gap (host - mlc): -32 mW. Within the v7.5 §6.3 ±50 mW threshold.**
+
+**Under jetson_clocks-effective measurement, host and MLC use
+statistically indistinguishable energy at idle.** The btest +155 mW
+finding was an artifact of comparing measurements taken under
+free-running DVFS, where the host pipeline's slightly higher CPU
+utilization caused schedutil to scale CPUs up more often than for the
+MLC pipeline. Under locked CPU frequency (jetson_clocks effective on
+this run), this scaling difference disappears and the energy axis
+collapses to noise.
+
+This **falsifies v7.5 H4'** ("MLC saves host energy at idle under
+vanilla scheduling"). H4' is replaced with: "host and MLC use
+statistically indistinguishable energy at idle when measured under
+jetson_clocks-effective conditions."
+
+### The latency claim, strengthened
+
+Long-duration smoke confirms and tightens the btest-scale latency
+findings:
+
+- Host idle (long, jc-effective): **317 µs** (b703)
+- MLC idle (long, jc-effective): **477 µs** (b702)
+- MLC i2c-contention (long, jc-effective): **1269 µs** (b700)
+
+Compared to btest:
+- Host idle btest: 351 µs → long: 317 µs (~10% tighter under jc)
+- MLC idle btest: 761 µs → long: 477 µs (~37% tighter — large reduction)
+- MLC i2c-contention btest: 1534 µs → long: 1269 µs (~17% tighter)
+
+The bank-switch read protocol is still the dominant MLC latency
+contributor (3 × i2c_read transactions per measurement). Under
+jc-effective measurement, the MLC bank-switch latency is more tightly
+distributed (sd 25 µs in b702 vs 356 µs in btest mlc-idle cell).
+
+**At long-duration jc-effective scale, host beats MLC bank-switch by
+~160 µs at idle and ~952 µs under i2c-contention.** The latency
+direction is unchanged from v7.5 H1'/H2'; the magnitudes shift
+slightly.
+
+### The 16.7% exclusion rate problem
+
+At 30-min sustained scale, the §11 exclusion rate exceeds the 10%
+cap for two of the four long-duration blocks:
+
+- b700 (mlc i2c-contention): 60/360 excluded = 16.7%
+- b701 (host idle, jc-ineffective): 44/360 excluded = 12.2%
+- b702 (mlc idle): 5/360 excluded = 1.4%
+- b703 (host idle, jc-effective): 4/360 excluded = 1.1%
+
+The exclusion rate is dominated by `multiple_d1_in_window` (the v7.4
+criterion-4 trigger): the classifier oscillates within a single
+stimulus window, producing multiple D1 edges. This is concentrated in
+the high-stress cells (mlc i2c-contention) and the jc-ineffective
+host cell. **The exclusion rate problem is real and correlates with
+both pipeline-bus-contention and DVFS jitter.** The confirmatory
+campaign must address this; options include longer stimulus periods
+(reducing mid-window oscillation likelihood) or classifier hysteresis.
+
+### Methodology recommendation for confirmatory campaign
+
+Per the findings above, the confirmatory campaign should:
+
+1. **Pre-flight check jc_eff per block.** Verify CPU-freq is ≥ 1700
+   MHz across ≥ 99% of tegrastats samples post-hoc; exclude blocks
+   where jc_eff < 99%.
+2. **Reconfigure nvpmodel for stable jc state.** Either (a) write a
+   custom nvpmodel mode with MIN_FREQ = 1728000, or (b) accept the
+   25W default and rely on jetson_clocks holding within a single
+   block (empirically works ~75% of the time).
+3. **Investigate the classifier oscillation cause** before launching
+   confirmatory. The 16.7% exclusion rate would invalidate the
+   campaign at n=500 per cell.
+4. **Re-state H4' as a null hypothesis or remove from the campaign.**
+   Long-duration data already falsified the directional H4'; running
+   confirmatory data would just re-confirm the null.
+
 ## Reproducibility
 
 Each block dir contains:

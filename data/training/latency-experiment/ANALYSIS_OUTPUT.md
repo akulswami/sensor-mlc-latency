@@ -7,7 +7,7 @@ Latency = wire-level D0→D1 microseconds from `trials.csv`, included trials onl
 Energy = INA3221 VDD_IN milliwatts from `tegrastats.log`, instantaneous samples.
 
 Mode: `--include-experimental primary`. 
-Includes only the planned campaign blocks: vanilla 301-312 + 402-407, chrt+taskset 601-618. Pre-restructure smoke (001-005, 101-112), restructure-validation (200-202, 401), and chrt+taskset smoke (501-502) are EXCLUDED.
+Includes only the planned campaign blocks: vanilla 301-312 + 402-407, chrt+taskset 601-618. Pre-restructure smoke (001-005, 101-112), restructure-validation (200-202, 401), chrt+taskset smoke (501-502), and long-duration smoke (700-703) are EXCLUDED.
 
 ## Per-cell summary
 
