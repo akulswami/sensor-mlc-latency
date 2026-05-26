@@ -1114,7 +1114,7 @@ authoritative external timestamp.
 
 ## Amendment 2026-05-24 (v6): Mount-check threshold adjustment
 
-**Status:** Pre-registered. Zenodo DOI TBD.
+**Status:** Drafted but retracted by v6.1 (2026-05-24, same day) before any Zenodo DOI was minted. The retraction (v6.1, Zenodo DOI 10.5281/zenodo.20370205 — https://doi.org/10.5281/zenodo.20370205) is the authoritative external timestamp for this proposal. v6's proposed `MOUNT_THRESHOLD_G` change was never adopted; the code value remained at 0.065 g (v5 Change 2).
 
 **Reason:** Empirical validation of v5 Change 2 protocol revealed pre-check threshold of 0.065 g was overly conservative given actual sensor stability. S1+S2 training centroid (May 20-21) remains stable; current sensor (May 24, same rig) measures 0.0247 g away — within thermal/gravitational noise for a fixed mount. S1/S2 separation is ~0.06 g; threshold was intended to catch real remounts. Lowering to 0.05 g preserves this goal while accommodating sensor noise.
 
