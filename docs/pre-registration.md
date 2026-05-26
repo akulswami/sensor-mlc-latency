@@ -1935,7 +1935,7 @@ These DOIs are back-filled into the `Status` lines of their respective amendment
 
 ## Amendment 2026-05-26 (v7.6): Falsification of H4' under jc-effective measurement; MAXN_SUPER_JC mode as required measurement configuration; §11 exclusion-rate clause restated; classifier stability added as secondary outcome
 
-**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20400025 (https://doi.org/10.5281/zenodo.20400025).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
