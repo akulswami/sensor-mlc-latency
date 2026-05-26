@@ -184,7 +184,13 @@ def run_block(args) -> int:
     """Run a single block. Returns 0 on success (block usable), nonzero on failure."""
 
     duration_sec = 30 if args.btest else args.duration
-    block_name = f"block-{args.block_id:03d}-{args.pipeline}-{args.condition}"
+    # Block ID may be int-like (legacy v7-era 1-40) or string (v7.5+ campaign).
+    # Zero-pad to 3 digits for legacy integer-string IDs; otherwise use as-is.
+    if args.block_id.isdigit():
+        block_id_str = f"{int(args.block_id):03d}"
+    else:
+        block_id_str = args.block_id
+    block_name = f"block-{block_id_str}-{args.pipeline}-{args.condition}"
     if args.btest:
         block_name += "-btest"
 
@@ -611,8 +617,13 @@ def main():
         description="Run one block of the v7 latency experiment."
     )
     parser.add_argument(
-        "--block-id", type=int, required=True,
-        help="Block ID (1-40 in pre-registered campaign)."
+        "--block-id",
+        required=True,
+        type=str,
+        help="Block ID. Pre-reg v7.5+ confirmatory uses strings like "
+        "'confirmatory-2026-05-26-b001'. Legacy v7-era used integers 1-40; "
+        "integer-only strings are zero-padded to 3 digits in the block "
+        "directory name for backward compatibility.",
     )
     parser.add_argument(
         "--condition", choices=["idle", "stress", "i2c-contention"], required=True,

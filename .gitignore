@@ -51,6 +51,9 @@ code/jetson/mlc_pipeline/host_pipeline
 !code/jetson/mlc_pipeline/*.h
 code/jetson/servo/servo_sweep
 data/training/*-btest/
+# Btest block subdirs (smoke-test outputs, not paper-relevant)
+data/training/latency-experiment/block-*-btest/
+
 
 # Sweep logs are valuable data (ground-truth label timestamps)
 !data/training/**/*.log
