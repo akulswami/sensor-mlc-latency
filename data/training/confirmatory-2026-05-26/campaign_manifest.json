@@ -1,0 +1,757 @@
+{
+  "campaign_id": "confirmatory-2026-05-26",
+  "btest": false,
+  "seed": 1990185399,
+  "seed_source": "code/analysis/block_order_seed.txt",
+  "planned_blocks": 81,
+  "completed_blocks": 81,
+  "halted_early": false,
+  "halt_reason": null,
+  "campaign_wall_sec": 25506.215059152804,
+  "block_duration_sec": 300,
+  "pipelines": [
+    "host",
+    "mlc",
+    "mlc-binary"
+  ],
+  "conditions": [
+    "idle",
+    "i2c-contention",
+    "stress"
+  ],
+  "blocks_per_cell": 9,
+  "consecutive_failure_limit": 3,
+  "started_at": "2026-05-26T13:20:09.712504",
+  "finished_at": "2026-05-26T20:25:15.927570",
+  "results": [
+    {
+      "block_id": 1,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 314.4978559361771,
+      "finished_at": "2026-05-26T13:25:24.210267"
+    },
+    {
+      "block_id": 2,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 312.3695096410811,
+      "finished_at": "2026-05-26T13:30:36.579874"
+    },
+    {
+      "block_id": 3,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 312.26723503228277,
+      "finished_at": "2026-05-26T13:35:48.847162"
+    },
+    {
+      "block_id": 4,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 312.35442985082045,
+      "finished_at": "2026-05-26T13:41:01.201669"
+    },
+    {
+      "block_id": 5,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 312.5374327721074,
+      "finished_at": "2026-05-26T13:46:13.739152"
+    },
+    {
+      "block_id": 6,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 312.42110738903284,
+      "finished_at": "2026-05-26T13:51:26.160305"
+    },
+    {
+      "block_id": 7,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 312.56991925882176,
+      "finished_at": "2026-05-26T13:56:38.730273"
+    },
+    {
+      "block_id": 8,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 312.2966190101579,
+      "finished_at": "2026-05-26T14:01:51.026938"
+    },
+    {
+      "block_id": 9,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 312.4854786489159,
+      "finished_at": "2026-05-26T14:07:03.512465"
+    },
+    {
+      "block_id": 10,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 312.5947823850438,
+      "finished_at": "2026-05-26T14:12:16.107313"
+    },
+    {
+      "block_id": 11,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 312.47030663490295,
+      "finished_at": "2026-05-26T14:17:28.577679"
+    },
+    {
+      "block_id": 12,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 312.56630739569664,
+      "finished_at": "2026-05-26T14:22:41.144045"
+    },
+    {
+      "block_id": 13,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 312.5786881339736,
+      "finished_at": "2026-05-26T14:27:53.722779"
+    },
+    {
+      "block_id": 14,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 312.38967623887584,
+      "finished_at": "2026-05-26T14:33:06.112506"
+    },
+    {
+      "block_id": 15,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 312.20529493596405,
+      "finished_at": "2026-05-26T14:38:18.317845"
+    },
+    {
+      "block_id": 16,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 312.2663344149478,
+      "finished_at": "2026-05-26T14:43:30.584241"
+    },
+    {
+      "block_id": 17,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 312.23567696101964,
+      "finished_at": "2026-05-26T14:48:42.819965"
+    },
+    {
+      "block_id": 18,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 312.89083800604567,
+      "finished_at": "2026-05-26T14:53:55.710852"
+    },
+    {
+      "block_id": 19,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 312.8459998369217,
+      "finished_at": "2026-05-26T14:59:08.556904"
+    },
+    {
+      "block_id": 20,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 312.4753728187643,
+      "finished_at": "2026-05-26T15:04:21.032326"
+    },
+    {
+      "block_id": 21,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 312.52097671618685,
+      "finished_at": "2026-05-26T15:09:33.553355"
+    },
+    {
+      "block_id": 22,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 312.5945085831918,
+      "finished_at": "2026-05-26T15:14:46.147920"
+    },
+    {
+      "block_id": 23,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 312.2316180546768,
+      "finished_at": "2026-05-26T15:19:58.379593"
+    },
+    {
+      "block_id": 24,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 312.4581203009002,
+      "finished_at": "2026-05-26T15:25:10.837761"
+    },
+    {
+      "block_id": 25,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 312.4832567269914,
+      "finished_at": "2026-05-26T15:30:23.321116"
+    },
+    {
+      "block_id": 26,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 312.61391977081075,
+      "finished_at": "2026-05-26T15:35:35.935084"
+    },
+    {
+      "block_id": 27,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 313.16693776426837,
+      "finished_at": "2026-05-26T15:40:49.102077"
+    },
+    {
+      "block_id": 28,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 315.9666052120738,
+      "finished_at": "2026-05-26T15:46:05.068735"
+    },
+    {
+      "block_id": 29,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 313.33912891801447,
+      "finished_at": "2026-05-26T15:51:18.407923"
+    },
+    {
+      "block_id": 30,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 316.02308303210884,
+      "finished_at": "2026-05-26T15:56:34.431272"
+    },
+    {
+      "block_id": 31,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 315.8713441407308,
+      "finished_at": "2026-05-26T16:01:50.302759"
+    },
+    {
+      "block_id": 32,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 318.66017210064456,
+      "finished_at": "2026-05-26T16:07:08.963059"
+    },
+    {
+      "block_id": 33,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 315.6631498429924,
+      "finished_at": "2026-05-26T16:12:24.626321"
+    },
+    {
+      "block_id": 34,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 315.6291581741534,
+      "finished_at": "2026-05-26T16:17:40.255547"
+    },
+    {
+      "block_id": 35,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 316.02089610742405,
+      "finished_at": "2026-05-26T16:22:56.276489"
+    },
+    {
+      "block_id": 36,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 318.58980007236823,
+      "finished_at": "2026-05-26T16:28:14.866360"
+    },
+    {
+      "block_id": 37,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 317.61240697139874,
+      "finished_at": "2026-05-26T16:33:32.478894"
+    },
+    {
+      "block_id": 38,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 316.49956408608705,
+      "finished_at": "2026-05-26T16:38:48.978800"
+    },
+    {
+      "block_id": 39,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 316.5262679378502,
+      "finished_at": "2026-05-26T16:44:05.505342"
+    },
+    {
+      "block_id": 40,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 316.3867532443255,
+      "finished_at": "2026-05-26T16:49:21.892165"
+    },
+    {
+      "block_id": 41,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 316.52204988198355,
+      "finished_at": "2026-05-26T16:54:38.414316"
+    },
+    {
+      "block_id": 42,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 316.62268513906747,
+      "finished_at": "2026-05-26T16:59:55.037409"
+    },
+    {
+      "block_id": 43,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 317.7760140988976,
+      "finished_at": "2026-05-26T17:05:12.813477"
+    },
+    {
+      "block_id": 44,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 316.491793918889,
+      "finished_at": "2026-05-26T17:10:29.305369"
+    },
+    {
+      "block_id": 45,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 317.1377718001604,
+      "finished_at": "2026-05-26T17:15:46.443356"
+    },
+    {
+      "block_id": 46,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 315.74818869680166,
+      "finished_at": "2026-05-26T17:21:02.191628"
+    },
+    {
+      "block_id": 47,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 313.08990898309276,
+      "finished_at": "2026-05-26T17:26:15.281593"
+    },
+    {
+      "block_id": 48,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 313.9694996988401,
+      "finished_at": "2026-05-26T17:31:29.251143"
+    },
+    {
+      "block_id": 49,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 316.45622467575595,
+      "finished_at": "2026-05-26T17:36:45.707440"
+    },
+    {
+      "block_id": 50,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 314.8406731639989,
+      "finished_at": "2026-05-26T17:42:00.548163"
+    },
+    {
+      "block_id": 51,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 316.73532215179875,
+      "finished_at": "2026-05-26T17:47:17.283538"
+    },
+    {
+      "block_id": 52,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 315.73999628797174,
+      "finished_at": "2026-05-26T17:52:33.023579"
+    },
+    {
+      "block_id": 53,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 316.6825861460529,
+      "finished_at": "2026-05-26T17:57:49.706239"
+    },
+    {
+      "block_id": 54,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 315.5151618057862,
+      "finished_at": "2026-05-26T18:03:05.221702"
+    },
+    {
+      "block_id": 55,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 318.5367825780995,
+      "finished_at": "2026-05-26T18:08:23.758701"
+    },
+    {
+      "block_id": 56,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 316.49296271195635,
+      "finished_at": "2026-05-26T18:13:40.251708"
+    },
+    {
+      "block_id": 57,
+      "pipeline": "mlc",
+      "condition": "stress",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 317.31474596913904,
+      "finished_at": "2026-05-26T18:18:57.566507"
+    },
+    {
+      "block_id": 58,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 315.3720614602789,
+      "finished_at": "2026-05-26T18:24:12.938699"
+    },
+    {
+      "block_id": 59,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 317.6797022554092,
+      "finished_at": "2026-05-26T18:29:30.618499"
+    },
+    {
+      "block_id": 60,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 319.02483981102705,
+      "finished_at": "2026-05-26T18:34:49.643445"
+    },
+    {
+      "block_id": 61,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 316.2362678637728,
+      "finished_at": "2026-05-26T18:40:05.879869"
+    },
+    {
+      "block_id": 62,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 316.20422762818635,
+      "finished_at": "2026-05-26T18:45:22.084199"
+    },
+    {
+      "block_id": 63,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 317.6186884799972,
+      "finished_at": "2026-05-26T18:50:39.702937"
+    },
+    {
+      "block_id": 64,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 318.5466405800544,
+      "finished_at": "2026-05-26T18:55:58.249648"
+    },
+    {
+      "block_id": 65,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 315.811424120795,
+      "finished_at": "2026-05-26T19:01:14.061127"
+    },
+    {
+      "block_id": 66,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 4,
+      "exit_code": 0,
+      "wall_sec": 317.57797343609855,
+      "finished_at": "2026-05-26T19:06:31.639204"
+    },
+    {
+      "block_id": 67,
+      "pipeline": "host",
+      "condition": "idle",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 317.1970196450129,
+      "finished_at": "2026-05-26T19:11:48.836307"
+    },
+    {
+      "block_id": 68,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 3,
+      "exit_code": 0,
+      "wall_sec": 316.761948633939,
+      "finished_at": "2026-05-26T19:17:05.598338"
+    },
+    {
+      "block_id": 69,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 7,
+      "exit_code": 0,
+      "wall_sec": 316.27912110229954,
+      "finished_at": "2026-05-26T19:22:21.877504"
+    },
+    {
+      "block_id": 70,
+      "pipeline": "host",
+      "condition": "i2c-contention",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 313.4656818197109,
+      "finished_at": "2026-05-26T19:27:35.343234"
+    },
+    {
+      "block_id": 71,
+      "pipeline": "mlc",
+      "condition": "i2c-contention",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 316.38177999900654,
+      "finished_at": "2026-05-26T19:32:51.725106"
+    },
+    {
+      "block_id": 72,
+      "pipeline": "host",
+      "condition": "stress",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 315.1368578481488,
+      "finished_at": "2026-05-26T19:38:06.862030"
+    },
+    {
+      "block_id": 73,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 314.20085205091164,
+      "finished_at": "2026-05-26T19:43:21.062994"
+    },
+    {
+      "block_id": 74,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 8,
+      "exit_code": 0,
+      "wall_sec": 314.1498867990449,
+      "finished_at": "2026-05-26T19:48:35.212969"
+    },
+    {
+      "block_id": 75,
+      "pipeline": "mlc-binary",
+      "condition": "idle",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 313.81518319714814,
+      "finished_at": "2026-05-26T19:53:49.028248"
+    },
+    {
+      "block_id": 76,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 2,
+      "exit_code": 0,
+      "wall_sec": 313.99761099601164,
+      "finished_at": "2026-05-26T19:59:03.025922"
+    },
+    {
+      "block_id": 77,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 1,
+      "exit_code": 0,
+      "wall_sec": 314.1291962279938,
+      "finished_at": "2026-05-26T20:04:17.155258"
+    },
+    {
+      "block_id": 78,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 313.8815100360662,
+      "finished_at": "2026-05-26T20:09:31.036897"
+    },
+    {
+      "block_id": 79,
+      "pipeline": "mlc-binary",
+      "condition": "stress",
+      "block_in_cell": 6,
+      "exit_code": 0,
+      "wall_sec": 314.63210723223165,
+      "finished_at": "2026-05-26T20:14:45.669061"
+    },
+    {
+      "block_id": 80,
+      "pipeline": "mlc",
+      "condition": "idle",
+      "block_in_cell": 0,
+      "exit_code": 0,
+      "wall_sec": 316.0986179257743,
+      "finished_at": "2026-05-26T20:20:01.767776"
+    },
+    {
+      "block_id": 81,
+      "pipeline": "mlc-binary",
+      "condition": "i2c-contention",
+      "block_in_cell": 5,
+      "exit_code": 0,
+      "wall_sec": 314.15948609635234,
+      "finished_at": "2026-05-26T20:25:15.927393"
+    }
+  ]
+}

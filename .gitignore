@@ -54,6 +54,10 @@ data/training/*-btest/
 # Btest block subdirs (smoke-test outputs, not paper-relevant)
 data/training/latency-experiment/block-*-btest/
 
+# digital.csv is reproducible from saleae.sal via sal_to_csv.py (~9 min for 81 blocks).
+# Excluding to avoid bloating the repo with 120+ MB of derivable data.
+data/training/latency-experiment/**/digital.csv
+
 
 # Sweep logs are valuable data (ground-truth label timestamps)
 !data/training/**/*.log

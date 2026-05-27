@@ -1,0 +1,101 @@
+{
+  "campaign_id": "confirmatory-2026-05-26",
+  "generated_at": "2026-05-26T21:59:20.593104",
+  "pre_reg_anchor_doi_v7_9": "10.5281/zenodo.20405611",
+  "n_bootstrap_resamples": 10000,
+  "alpha": 0.05,
+  "h5_equivalence_margin_us": 30.0,
+  "results": {
+    "H1'": {
+      "description": "host_idle latencies stochastically LESS than mlc_idle",
+      "n_x": 536,
+      "n_y": 525,
+      "test": "one-sided Mann-Whitney U, alternative='less'",
+      "U": 1940.0,
+      "p_value": 1.8660627704516216e-170,
+      "hodges_lehmann_us": -359.2799999978524,
+      "hl_ci_95pct_us": [
+        -373.5629999582102,
+        -352.4800000036521
+      ],
+      "x_median_us": 321.70999999436845,
+      "y_median_us": 681.5200000005461
+    },
+    "H2'": {
+      "description": "host_i2c-contention latencies stochastically LESS than mlc_i2c-contention",
+      "n_x": 529,
+      "n_y": 532,
+      "test": "one-sided Mann-Whitney U, alternative='less'",
+      "U": 1987.0,
+      "p_value": 2.3317330777550803e-170,
+      "hodges_lehmann_us": -753.1799999949129,
+      "hl_ci_95pct_us": [
+        -759.979999997995,
+        -746.6799999633622
+      ],
+      "x_median_us": 574.4999999706124,
+      "y_median_us": 1325.4400000022315
+    },
+    "H3'": {
+      "description": "(\u0394_MLC \u2212 \u0394_host) > 0; MLC degrades more under contention than host",
+      "delta_mlc_us": 611.660000000569,
+      "delta_mlc_ci_95pct": [
+        582.6994999964086,
+        639.3999999552591
+      ],
+      "delta_host_us": 249.23999998804902,
+      "delta_host_ci_95pct": [
+        245.87999999408083,
+        253.22050002500873
+      ],
+      "diff_of_diffs_us": 391.1300000254414,
+      "diff_of_diffs_ci_95pct": [
+        372.8164999737604,
+        399.99000000014996
+      ],
+      "p_value": 9.999000099990002e-05,
+      "test": "bootstrap of (\u0394_MLC \u2212 \u0394_host) via pre-registered \u00a712 H2 function with mlc/host argument swap (algebraic identity documented in source)"
+    },
+    "H5'": {
+      "description": "host_stress equivalent to host_idle within \u00b130.0 \u00b5s",
+      "n_x": 532,
+      "n_y": 536,
+      "test": "TOST equivalence, bootstrap, margin \u00b130.0 \u00b5s",
+      "median_diff_us": 23.270000014008474,
+      "ci_90pct_us": [
+        22.730000025994457,
+        23.740000003158457
+      ],
+      "equivalent_at_alpha": true,
+      "p_lower": 9.999000099990002e-05,
+      "p_upper": 9.999000099990002e-05,
+      "p_value_tost": 9.999000099990002e-05,
+      "hodges_lehmann_us": 22.459999968305056,
+      "hl_ci_95pct_us": [
+        21.840000002271154,
+        23.040000002083616
+      ],
+      "x_median_us": 344.9800000083769,
+      "y_median_us": 321.70999999436845
+    }
+  },
+  "holm_bonferroni": {
+    "H1'": {
+      "rejected": true,
+      "p_adjusted": 5.598188311354865e-170
+    },
+    "H2'": {
+      "rejected": true,
+      "p_adjusted": 5.598188311354865e-170
+    },
+    "H3'": {
+      "rejected": true,
+      "p_adjusted": 9.999000099990002e-05
+    }
+  },
+  "deferred": {
+    "H6_prime": "Energy comparison; requires tegrastats.log analysis (separate script).",
+    "H7_prime": "Classifier stability under contention; requires per-window decision data (separate script)."
+  },
+  "notes": "H5' equivalence verdict is binary (TOST), not p-value; Holm-Bonferroni across {H1', H2', H3'} only; H5' verdict reported separately. Full pre-reg family is 6 hypotheses; H6' and H7' deferred to separate analyses."
+}
