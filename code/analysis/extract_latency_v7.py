@@ -267,10 +267,16 @@ def assign_trials(
     entire trace is the session sync edge (Gate 1) and is treated as
     not-a-measurement-edge. It is consumed and skipped before trial pairing.
 
-    pipeline ('host' or 'mlc') controls the criterion 4 behavior per v7.4.
+    pipeline ('host', 'mlc', or 'mlc-binary') controls the criterion 4 behavior.
+    Per pre-reg v7.4 (host vs mlc) and v7.9 (extension to mlc-binary): mlc and
+    mlc-binary share the §11 criterion 4 MLC-side logic since both pipelines
+    receive D0 from the same MLC silicon; they differ only in the host's I²C
+    read protocol after the D0 event.
     """
-    if pipeline not in ("host", "mlc"):
-        raise ValueError(f"pipeline must be 'host' or 'mlc', got {pipeline!r}")
+    if pipeline not in ("host", "mlc", "mlc-binary"):
+        raise ValueError(
+            f"pipeline must be 'host', 'mlc', or 'mlc-binary', got {pipeline!r}"
+        )
 
     d0_risings = sorted(
         [e.t_s for e in edges if e.channel == 0 and e.direction == "rising"]
@@ -352,7 +358,7 @@ def assign_trials(
         # ambiguous (the MLC fired twice before the host could read MLC0_SRC).
         # For host pipeline: D0 streams at sensor ODR; multiple D0s in this
         # range are normal and not an exclusion.
-        if pipeline == "mlc" and len(d0_in_pair_range) >= 2:
+        if pipeline in ("mlc", "mlc-binary") and len(d0_in_pair_range) >= 2:
             trials.append(TrialRecord(
                 trial_id=trial_id,
                 stimulus_type=trans.transition_type,
@@ -407,7 +413,7 @@ def extract_trials_from_csv(
 ) -> List[TrialRecord]:
     """Top-level: CSV → list of TrialRecords.
 
-    pipeline ('host' or 'mlc') controls the §11 criterion 4 behavior per
+    pipeline ('host', 'mlc', or 'mlc-binary') controls the §11 criterion 4 behavior per
     pre-reg v7.4. See assign_trials for details.
     """
     edges = parse_saleae_csv(csv_path)
@@ -439,9 +445,11 @@ def main():
     parser = argparse.ArgumentParser(description="Extract per-trial latencies from a Saleae CSV.")
     parser.add_argument("--csv", required=True, type=Path, help="Path to Saleae digital CSV.")
     parser.add_argument("--out", required=True, type=Path, help="Output CSV path.")
-    parser.add_argument("--pipeline", choices=["host", "mlc"], required=True,
-                        help="Which pipeline produced the trace. Controls the "
-                             "§11 criterion 4 behavior per pre-reg v7.4.")
+    parser.add_argument("--pipeline", choices=["host", "mlc", "mlc-binary"], required=True,
+                        help="Which pipeline produced the trace. Controls the §11 "
+                             "criterion 4 behavior per pre-reg v7.4 (host, mlc) and "
+                             "v7.9 (mlc-binary uses identical §11 criterion 4 logic "
+                             "to mlc, since both consume the same MLC silicon D0 events).")
     parser.add_argument("--is-first-arm", action="store_true",
                         help="If set, the first D1 rising edge is treated as the session sync edge "
                              "(skipped as a measurement edge). Use for the still arm of v7 captures.")
