@@ -2359,3 +2359,108 @@ The seed-derivation method is preserved across v7.8 — the same `uint32(first_8
 ### External timestamp
 
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-26-v7-8`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or capture session until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
+
+
+## Amendment 2026-05-26 (v7.9): extract_latency_v7.py extended to support mlc-binary pipeline
+
+**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+
+**Data collected under prior protocol that is affected by this amendment:**
+
+The confirmatory campaign (`confirmatory-2026-05-26`, 81 blocks, 7.09 hr wall, 100% block-level OK, captured between 2026-05-26 13:25 and 20:20) produced 27 blocks of mlc-binary pipeline data: 9 idle, 9 i2c-contention, 9 stress (300 s each, ~60 candidate transitions per block).
+
+**Procedural disclosure for this amendment:**
+
+This amendment formalizes a change to `code/analysis/extract_latency_v7.py` that was applied during the post-capture analysis phase on 2026-05-26, AFTER the campaign capture but BEFORE any pre-registered statistical test (H1' through H7') was run on the mlc-binary trials. At the time the extension was applied, the `extract_latency_v7.py` script accepted only `--pipeline {host, mlc}`, but the campaign data included a third pipeline (`mlc-binary`) that had been pre-registered at the campaign level in v7.5 (DOI 10.5281/zenodo.20389914). The script was extended to accept `mlc-binary` as a third pipeline value with identical §11 criterion 4 logic to `mlc`.
+
+This is a retrospective pre-registration of an operationalization that occurred during analysis. The honest framing: the script extension was a gap-closing change (the v7.5 campaign design specified mlc-binary as a pipeline, but the v7.4 extractor pre-dated v7.5 and was never updated), not a substantive methodology change. The §11 criterion 4 logic applied to mlc-binary is the same as the v7.4 pre-registered logic for mlc, by the rationale articulated in Change 1 below. v7.9 is committed and Zenodo-timestamped before any pre-registered statistical test (H1' through H7') is run on the mlc-binary data, so the statistical claims based on the mlc-binary trials are made against pre-registered analysis logic.
+
+A more procedurally pristine alternative would have been: (a) delete the mlc-binary trials.csv files produced under the extended extractor; (b) mint the v7.9 Zenodo DOI; (c) re-run the extraction. The output would be bit-identical (the extractor is deterministic on the same input digital.csv). v7.8 Procedural Lesson 2 ("In-place file updates with git-history transparency are acceptable for pre-registered artifacts when no data has been collected") applies here in spirit: the trials.csv files are derived data, the analysis logic itself is what is pre-registered, and the git history preserves the extractor's prior and current state.
+
+---
+
+### Reason for this amendment
+
+v7.4 pre-registered the addition of a `--pipeline {host, mlc}` argument to `extract_latency_v7.py` and specified pipeline-specific §11 criterion 4 logic. v7.5 (Change 6, 2026-05-25) added `mlc-binary` as a third pipeline at the campaign level but did not update the extractor. This left a gap: the v7.5 campaign design would produce mlc-binary blocks, but the v7.4 extractor would refuse to process them (`raise ValueError if pipeline not in ('host', 'mlc')`).
+
+v7.9 closes the gap. The §11 criterion 4 logic for mlc-binary is identical to mlc because:
+
+1. Both pipelines consume D0 events from the same MLC silicon. The MLC fires INT1 according to its own decision schedule; the host's subsequent read protocol does not change when or how often the MLC fires.
+2. The §11 criterion 4 (MLC side) exclusion "multiple_d0_before_d1" detects the anomaly where the MLC fires twice before the host's read completes. This anomaly is equally relevant for mlc-binary (where the host's "read" is just toggling a GPIO unconditionally — but even that has a kernel-side latency where a second D0 could fire) as it is for mlc (where the host's read is the bank-switch protocol).
+3. The §11 criterion 4 (host side) exclusion does not apply to mlc-binary — mlc-binary is an on-MLC pipeline, like mlc.
+
+These rationales were implicit in v7.4's framing ("MLC pipeline" vs "host pipeline"); v7.9 makes them explicit for mlc-binary.
+
+---
+
+### Change 1: extract_latency_v7.py accepts mlc-binary as a pipeline value
+
+The validator in `extract_latency_v7.py` is extended:
+
+```python
+# Before (v7.4)
+if pipeline not in ("host", "mlc"):
+    raise ValueError(f"pipeline must be 'host' or 'mlc', got {pipeline!r}")
+
+# After (v7.9)
+if pipeline not in ("host", "mlc", "mlc-binary"):
+    raise ValueError(
+        f"pipeline must be 'host', 'mlc', or 'mlc-binary', got {pipeline!r}"
+    )
+```
+
+The argparse `--pipeline` choices are extended from `{host, mlc}` to `{host, mlc, mlc-binary}`.
+
+### Change 2: §11 criterion 4 branching applies to mlc-binary
+
+The branching condition in the extractor is updated to include mlc-binary in the MLC-side path:
+
+```python
+# Before (v7.4)
+if pipeline == "mlc" and len(d0_in_pair_range) >= 2:
+
+# After (v7.9)
+if pipeline in ("mlc", "mlc-binary") and len(d0_in_pair_range) >= 2:
+```
+
+mlc-binary thus receives the "multiple_d0_before_d1" exclusion when applicable. The host-pipeline branch (where multiple D0s in the pair range are normal at sensor ODR) does not apply to mlc-binary.
+
+### Change 3: Documentation and provenance
+
+The extractor's docstring is updated to reference both v7.4 (host vs mlc) and v7.9 (mlc-binary extension). The argparse help text mentions the v7.9 amendment explicitly. The git history of `code/analysis/extract_latency_v7.py` preserves the v7.4 state via commit `f6fe518` (tag `prereg-amendment-2026-05-25-v7-4`).
+
+---
+
+### What is NOT changed by this amendment
+
+- §1 research question
+- §2 hypotheses (H1' through H7' from v7.6, including the mlc-binary cells)
+- §3 trial count (n=500 per cell)
+- §4 classification task
+- §5 pipelines (host, mlc, mlc-binary per v7.5)
+- §6 measurement configuration (nvpmodel mode 3 per v7.6)
+- §7 randomization-and-blocking (seed 1990185399, 81 blocks per v7.8)
+- §8 stress conditions
+- §9 parity gate
+- §10 Phase-B locks
+- §11 trial-level and cell-level criteria — Change 1 above extends criterion 4 to mlc-binary but does not change the criterion itself
+- §12 statistical machinery (still to be applied to all three pipelines)
+- §13, §14
+
+The mlc-binary trials.csv files produced before this amendment was Zenodo-timestamped remain valid for analysis: the extractor's logic is the same on those files as it will be on any future re-extraction.
+
+---
+
+### Procedural lessons recorded in this amendment
+
+1. **Pre-registered scripts must be kept synchronized with pre-registered campaign designs.** v7.5 added a third pipeline at the campaign level, but the v7.4 extractor was not updated to match. The gap surfaced only when post-campaign analysis began. Future pipeline additions should include a checklist item: "Is the extractor's --pipeline list updated?"
+
+2. **Retrospective pre-registration is sometimes the honest choice.** When an analysis-side gap is discovered after data collection but before statistical tests, the procedurally cleanest approach (delete derived data, mint DOI, re-derive) produces bit-identical output to the disclosure-and-document approach. The latter is more honest about timing and provides the audit trail that pre-registration is designed to support.
+
+3. **Extractor-vs-campaign-design coupling should be checked at each amendment.** A standing pre-flight check before any v.X amendment to the campaign design: does the analysis pipeline (extractor, statistical test code) cover all the pre-registered conditions?
+
+---
+
+### External timestamp
+
+This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-26-v7-9`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. The DOI of the Zenodo release containing this amendment is the authoritative external timestamp. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or paper draft until the Zenodo release is published and its DOI is inserted into the `Status` line above.** Per the procedural disclosure above, this amendment's Zenodo timestamp must occur BEFORE any pre-registered statistical test (H1' through H7') is run on the campaign data, so that statistical claims are made against pre-registered analysis logic.
