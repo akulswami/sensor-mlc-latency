@@ -2363,7 +2363,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-26 (v7.9): extract_latency_v7.py extended to support mlc-binary pipeline
 
-**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20405611 (https://doi.org/10.5281/zenodo.20405611).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
