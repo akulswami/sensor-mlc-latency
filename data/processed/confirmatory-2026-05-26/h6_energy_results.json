@@ -1,0 +1,35 @@
+{
+  "campaign_id": "confirmatory-2026-05-26",
+  "generated_at": "2026-05-26T22:11:15.687679",
+  "pre_reg_anchors": [
+    "v7.5 Change 9",
+    "v7.6"
+  ],
+  "threshold_mw": 1000.0,
+  "alpha": 0.05,
+  "subsample_factor": 10,
+  "n_bootstrap_resamples": 10000,
+  "results": {
+    "idle_n_samples_full": 16352,
+    "stress_n_samples_full": 16313,
+    "idle_n_samples_subsampled": 1651,
+    "stress_n_samples_subsampled": 1641,
+    "idle_mean_mw": 5206.439640410959,
+    "stress_mean_mw": 8626.00766260038,
+    "diff_of_means_mw": 3419.56802218942,
+    "diff_ci_95pct_mw": [
+      3410.468971100979,
+      3428.7207470486355
+    ],
+    "mwu_full_p_value": 0.0,
+    "mwu_subsampled_p_value": 0.0,
+    "idle_lag1_autocorr": 0.7154465625466766,
+    "stress_lag1_autocorr": 0.9792193002289619
+  },
+  "verdicts": {
+    "mwu_rejects_null": true,
+    "ci_clears_1000_mw_threshold": true,
+    "h6_prime_overall": "SUPPORTED"
+  },
+  "pre_registered_caveats": "Per v7.5 Change 1, smaller energy delta under nvpmodel mode 3 was a pre-registered prediction. Falsification of H6' is consistent with that prediction (baseline near max CPU frequency leaves less headroom for stress-ng to add power)."
+}
