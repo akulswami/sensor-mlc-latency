@@ -14,7 +14,7 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 **H6' (CPU stress positive for energy): SUPPORTED.** Mean VDD_IN (INA3221 via tegrastats) rises from 5,206 mW (idle) to 8,626 mW (stress): +3,420 mW [+3,410, +3,429], exceeding the pre-registered +1,000 mW threshold threefold. The power axis distinguishes CPU stress unambiguously where the latency axis (H5') cannot.
 
-**H7' (MLC stability degrades under contention): FALSIFIED — direction opposite.** The fraction of stimulus windows with exactly one D1 rising edge is 97.22% (525/540) at idle versus 98.89% (534/540) under contention — a +1.67 percentage-point *increase*, not the predicted decrease. Fisher's exact test in the pre-registered direction gives p = 0.9874 (two-sided p = 0.0755). H7' is formally falsified in pre-registration v7.10 [REF-PREREG]. I²C contention slows the MLC pipeline (H2', H3') but does not degrade the silicon's classifier reliability.
+**H7' (MLC stability degrades under contention): FALSIFIED — direction opposite.** The fraction of stimulus windows with exactly one D1 rising edge is 97.22% (525/540) at idle versus 98.89% (534/540) under contention — a +1.67 percentage-point *increase*, not the predicted decrease. Fisher's exact test in the pre-registered direction gives p = 0.9874 (two-sided p = 0.0755). H7' is formally falsified in pre-registration v7.10 [4]. I²C contention slows the MLC pipeline (H2', H3') but does not degrade the silicon's classifier reliability.
 
 ## V.B Multimodal latency distributions
 
@@ -22,7 +22,7 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 ## V.C MLC intrinsic decision cadence
 
-**Fig. 2** shows inter-trial D0 (INT1) gaps (n = 3,086) clustering sharply at integer multiples of T = 706.5 ms with empty inter-peak bins. T equals one-quarter of the MLC's 75-sample, 26 Hz window period (2.885 s / 4 = 0.721 s; empirical peak 0.7065 s). This quantization is intrinsic to the silicon — classification updates only on the MLC's internal 706.5 ms clock — and we find it undocumented in ST application notes [REF-AN5259] or the LSM6DSOX datasheet.
+**Fig. 2** shows inter-trial D0 (INT1) gaps (n = 3,086) clustering sharply at integer multiples of T = 706.5 ms with empty inter-peak bins. T equals one-quarter of the MLC's 75-sample, 26 Hz window period (2.885 s / 4 = 0.721 s; empirical peak 0.7065 s). This quantization is intrinsic to the silicon — classification updates only on the MLC's internal 706.5 ms clock — and we find it undocumented in ST application notes [2] or the LSM6DSOX datasheet.
 
 ## V.D Exclusion rates
 

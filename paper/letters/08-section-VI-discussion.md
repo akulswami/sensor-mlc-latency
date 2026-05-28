@@ -8,7 +8,7 @@ Two consequences follow. Any platform using the LSM6DSOX MLC over I²C inherits 
 
 ## VI.B Implications for safety-critical edge ML
 
-A naive reading of "on-sensor inference is faster" would favor the MLC for low-latency safety-critical loops such as exoskeleton control [REF-RAZMI-2026]. Our results invert that on the wire-level latency axis: the host reaches its decision 359 µs earlier at idle, 753 µs earlier under contention, and is equivalence-null against CPU stress (H5').
+A naive reading of "on-sensor inference is faster" would favor the MLC for low-latency safety-critical loops such as exoskeleton control [3]. Our results invert that on the wire-level latency axis: the host reaches its decision 359 µs earlier at idle, 753 µs earlier under contention, and is equivalence-null against CPU stress (H5').
 
 The control results sharpen the practical lesson: **"stress" is not a single thing.** CPU stress is significant on energy (H6', +3,420 mW) but null on host latency (H5') and on classifier reliability; I²C bus contention is significant on latency (H2', H3') but null on classifier reliability (H7' falsified — the stable-trial rate is, if anything, slightly higher under contention). A specification that bundles CPU stress and bus contention into one "stress margin" will over-provision for one axis while under-provisioning for the other. If the deployment shares its I²C bus, the latency budget must account for contention; if it saturates CPU but keeps a clean bus, host latency is essentially unaffected.
 
