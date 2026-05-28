@@ -2468,7 +2468,7 @@ This amendment is committed to the public repository at github.com/akulswami/sen
 
 ## Amendment 2026-05-27 (v7.10): Falsification of H7' under pre-registered confirmatory measurement; classifier stability under I²C contention is empirically null (with marginal direction opposite to pre-reg prediction)
 
-**Status:** Drafted, awaiting Zenodo external timestamp. Zenodo DOI: [TBD-DOI-INSERT].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.20420866 (https://doi.org/10.5281/zenodo.20420866).
 
 **Data collected under prior protocol that is affected by this amendment:**
 
