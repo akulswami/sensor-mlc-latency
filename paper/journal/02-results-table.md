@@ -5,7 +5,7 @@
 **Wall time:** 25506.2s = 7.09 hours
 **Blocks:** 81/81 completed, 81/81 OK, 100% jc_eff across all blocks
 **Pipeline binaries:**
-- `host`: host_pipeline_parity, decision-tree on accelerometer 75-sample windows at 416 Hz
+- `host`: host_pipeline_parity, decision-tree on accelerometer 75-sample windows at 208 Hz
 - `mlc`: latency_test_mlc_w75, 3-transaction bank-switch read of MLC0_SRC
 - `mlc-binary`: latency_test_mlc_binary_w75, 0-transaction binary-fast variant (toggles GPIO unconditionally on INT1)
 
@@ -30,14 +30,14 @@ Latency = t(D1 rising) − t(D0 rising) per pre-reg v7 Change 3.
 ### Pre-registered (H1'-H7' from v7.5/v7.6/v7.10):
 - **H1' (host < MLC at idle): SUPPORTED.** Host median 321.7µs vs MLC median 681.5µs (factor of 2.1x).
 - **H2' (host < MLC under contention): SUPPORTED.** Host i2c-contention 574.5µs vs MLC i2c-contention 1325.4µs (factor of 2.3x).
-- **H3' (MLC degrades more under contention): SUPPORTED.** MLC: 681.5 → 1325.4 (+95%). Host: 321.7 → 574.5 (+79%).
+- **H3' (MLC degrades more under contention): SUPPORTED.** By the pre-registered Hodges-Lehmann shift, MLC degrades +611.7 µs (+90%) vs host +249.2 µs (+78%). (Raw median differences are +94% and +79%; the registered analysis uses the HL shift.)
 - **H5' (CPU stress null for host latency): SUPPORTED (equivalent).** Host stress 345.0µs vs idle 321.7µs. Formal TOST with ±30 µs margin: median diff +23.3 µs (90% CI [22.7, 23.7]) ⊂ [-30, +30]. Equivalence declared.
 - **H7' (classifier stability degrades under contention): NOT SUPPORTED, direction OPPOSITE to prediction.** MLC stability under i2c-contention (98.89%, 534/540) is slightly HIGHER than under idle (97.22%, 525/540); Fisher's exact one-sided in pre-reg direction p=0.9874; two-sided reference p=0.0755 (marginal, n.s.). Formally falsified in v7.10 (Zenodo DOI 10.5281/zenodo.20420866). Substantive implication: I²C contention adds latency (H2', H3') but does NOT degrade classifier reliability.
 
 ### Exploratory (post-hoc):
-- **Multimodal latency distributions** observed in mlc and mlc-binary pipelines under all conditions. mlc/idle shows modes at 480µs and 675µs separated by ~180µs. mlc-binary shows modes at 50µs, 230µs, and 450µs.
+- **Multimodal latency distributions** observed in mlc and mlc-binary pipelines under all conditions. mlc/idle shows modes at 480µs and 675µs separated by ~180µs. mlc-binary shows modes at 60µs, 240µs, and 470µs.
 - **MLC 706.5ms intrinsic decision cadence** confirmed: D0 inter-edge gaps are quantized to integer multiples of 706.5ms.
-- **mlc-binary is 0-I²C-transaction:** the binary toggles D1 unconditionally on every INT1 rising edge, without reading MLC0_SRC. Its measured latency reflects pure kernel/gpiod interrupt-to-GPIO write time, which is itself multimodal at ~50µs and ~230µs.
+- **mlc-binary is 0-I²C-transaction:** the binary toggles D1 unconditionally on every INT1 rising edge, without reading MLC0_SRC. Its measured latency reflects pure kernel/gpiod interrupt-to-GPIO write time, which is itself multimodal at ~60µs and ~240µs.
 
 ### Exclusion rates
 All cells under §11's 10% cap. Highest: mlc/idle at 2.78%. Lowest: host/idle at 0.74%.
