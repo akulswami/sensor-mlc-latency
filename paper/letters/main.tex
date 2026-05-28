@@ -1,0 +1,69 @@
+\documentclass[journal]{IEEEtran}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{textcomp}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{url}
+\usepackage{xcolor}
+
+\graphicspath{{../figures/}}
+
+\begin{document}
+
+\title{Wire-Level Latency of On-Sensor MLC versus Host Inference on a Resource-Constrained Edge Platform: A Pre-Registered Measurement Study}
+
+\author{Akul~Swami%
+\thanks{Manuscript submitted \today.}%
+\thanks{A.~Swami is an independent researcher (e-mail: swami.akul@alumni.uml.edu).}%
+\thanks{Code, data, and the full pre-registration chain are available at https://github.com/akulswami/sensor-mlc-latency.}}
+
+\markboth{IEEE Sensors Letters}{Swami: Wire-Level Latency of On-Sensor MLC versus Host Inference}
+
+\maketitle
+
+\begin{abstract}
+\input{_abstract}
+\end{abstract}
+
+\begin{IEEEkeywords}
+Inertial measurement unit, machine learning core, edge inference, latency measurement, pre-registration, LSM6DSOX.
+\end{IEEEkeywords}
+
+\IEEEpeerreviewmaketitle
+
+\input{_body}
+
+% ---------------- Figures ----------------
+
+% ---------------- Table ----------------
+
+% ---------------- References ----------------
+\begin{thebibliography}{11}
+
+\bibitem{ref1} STMicroelectronics, ``LSM6DSOX: 6-axis IMU with machine learning core,'' Datasheet DS12140, 2024. [Online]. Available: https://www.st.com/resource/en/datasheet/lsm6dsox.pdf
+
+\bibitem{ref2} STMicroelectronics, ``LSM6DSOX: Machine Learning Core,'' Application Note AN5259, 2023. [Online]. Available: https://www.st.com/resource/en/application\_note/an5259-lsm6dsox-machine-learning-core-stmicroelectronics.pdf
+
+\bibitem{ref3} M.~Razmi and I.~Shojaei, ``Event-driven on-sensor locomotion mode recognition using a shank-mounted IMU with embedded machine learning for exoskeleton control,'' arXiv:2602.21418, Feb.\ 2026.
+
+\bibitem{ref4} A.~Swami, ``Pre-registration chain for the sensor-mlc-latency study,'' Zenodo, externally-timestamped multi-amendment DOI chain (v6.1--v7.10), 2026. doi:10.5281/zenodo.20420866 (v7.10).
+
+
+\bibitem{ref5} H.~B.~Mann and D.~R.~Whitney, ``On a test of whether one of two random variables is stochastically larger than the other,'' \emph{Ann. Math. Statist.}, vol.~18, no.~1, pp.~50--60, 1947.
+
+\bibitem{ref6} J.~L.~Hodges and E.~L.~Lehmann, ``Estimates of location based on rank tests,'' \emph{Ann. Math. Statist.}, vol.~34, no.~2, pp.~598--611, 1963.
+
+\bibitem{ref7} B.~Efron, ``Bootstrap methods: Another look at the jackknife,'' \emph{Ann. Statist.}, vol.~7, no.~1, pp.~1--26, 1979.
+
+\bibitem{ref8} D.~J.~Schuirmann, ``A comparison of the two one-sided tests procedure and the power approach for assessing the equivalence of average bioavailability,'' \emph{J. Pharmacokinet. Biopharm.}, vol.~15, no.~6, pp.~657--680, 1987.
+
+
+\bibitem{ref9} S.~Holm, ``A simple sequentially rejective multiple test procedure,'' \emph{Scand. J. Statist.}, vol.~6, no.~2, pp.~65--70, 1979.
+
+\end{thebibliography}
+
+\end{document}

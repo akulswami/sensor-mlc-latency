@@ -1,0 +1,22 @@
+\begin{table}[!t]
+  \centering
+  \caption{Wire-Level Latency per Pipeline $\times$ Condition ($\mu$s)}
+  \label{tab:latency}
+  \setlength{\tabcolsep}{4pt}
+  \footnotesize
+  \begin{tabular}{llrrr}
+    \toprule
+    Pipeline & Condition & $n$ & Median & IQR (p25--p75) \\
+    \midrule
+    host       & idle      & 536 & 321.7  & 319.7--326.4   \\
+    host       & i2c-cont. & 529 & 574.5  & 547.8--599.0   \\
+    host       & stress    & 532 & 345.0  & 342.0--349.0   \\
+    mlc        & idle      & 525 & 681.5  & 505.4--1086.8  \\
+    mlc        & i2c-cont. & 532 & 1325.4 & 1283.8--1371.5 \\
+    mlc        & stress    & 527 & 546.1  & 535.8--557.0   \\
+    mlc-binary & idle      & 531 & 231.9  & 61.8--246.2    \\
+    mlc-binary & i2c-cont. & 527 & 49.4   & 46.9--53.2     \\
+    mlc-binary & stress    & 531 & 70.2   & 66.9--73.0     \\
+    \bottomrule
+  \end{tabular}
+\end{table}

@@ -2,7 +2,7 @@
 
 ## III.A Hardware Platform
 
-The edge platform is an NVIDIA Jetson Orin Nano Developer Kit (JetPack 6.2.2, kernel 5.15.148-tegra, 6-core ARM Cortex-A78AE). All measurements ran under a custom MAXN_SUPER_JC nvpmodel (per pre-registration v7.6 [4]) pinning all six CPUs at 1728 MHz; per-block jc-effectiveness (fraction of tegrastats samples ≥ 1700 MHz) was verified ≥ 99%, and all 81 blocks achieved 100%.
+The edge platform is an NVIDIA Jetson Orin Nano Developer Kit (JetPack 6.2.2, kernel 5.15.148-tegra, 6-core ARM Cortex-A78AE). All measurements ran under a custom MAXN_SUPER_JC nvpmodel (v7.6 [4]) pinning all six CPUs at 1728 MHz; per-block jc-effectiveness (tegrastats samples ≥ 1700 MHz) was ≥ 99%, with all 81 blocks at 100%.
 
 The sensor is an STMicroelectronics LSM6DSOX 6-axis IMU breakout (STEVAL-MKI197V1) on I²C bus 7 (pins 3/5, address 0x6A). All three pipelines configure the accelerometer identically (CTRL1_XL = 0x50: 208 Hz, ±2 g, LPF2 off). The Machine Learning Core runs at 26 Hz with a custom 2-class motion/still classifier (75-sample windows, config mlc_motion_w75.h) trained in ST MEMS Studio, with output routed to INT1.
 
@@ -10,13 +10,13 @@ Two Jetson GPIO lines are instrumented with a Saleae Logic Pro 8 (250 MS/s): **D
 
 ## III.B Pipelines Under Test
 
-Three pipelines are compared end-to-end, sharing the same I²C arbitration, gpiod write path, and accelerometer configuration — differing only in what happens after an interrupt arrives:
+Three pipelines are compared end-to-end, sharing the same I²C arbitration, gpiod write path, and accelerometer configuration, and differing only in what happens after an interrupt arrives:
 
 **(a) host** (host_pipeline_parity): polls the accelerometer at 208 Hz, assembles a 75-sample window, and applies a decision-tree classifier (variance of accelerometer L2-norm against a calibrated threshold), toggling D1 on every output state change.
 
 **(b) mlc** (latency_test_mlc_w75): on each INT1 edge, performs the three I²C transactions of the bank-switch read (write FUNC_CFG_ACCESS = 0x80 to enter the embedded bank, read MLC0_SRC = 0x70, write FUNC_CFG_ACCESS = 0x00 to return), writing D1 if the output changed.
 
-**(c) mlc-binary** (latency_test_mlc_binary_w75): on each INT1 edge, unconditionally toggles D1 without reading MLC0_SRC — valid for the 2-class case and providing a kernel/gpiod-only latency floor against which (b)'s I²C-read overhead is measured.
+**(c) mlc-binary** (latency_test_mlc_binary_w75): on each INT1 edge, unconditionally toggles D1 without reading MLC0_SRC, valid for the 2-class case and providing a kernel/gpiod-only latency floor against which (b)'s I²C-read overhead is measured.
 
 ## III.C Stress Conditions
 
@@ -24,4 +24,4 @@ Three conditions are tested. **idle**: CPUs pinned but otherwise unloaded. **i2c
 
 ## III.D Measurement Protocol
 
-Each (pipeline, condition) cell comprises 9 blocks of 300 s. Block order across the 81-block campaign follows a pre-registered deterministic shuffle seeded by 1990185399 = uint32(first 8 hex of SHA-256 of the v7.7 anchor commit f5bd702), recorded in v7.8 [4]. Within each block the orchestrator delivers 60 candidate transitions; latency is t(D1) − t(D0). Inclusion (pre-registered v7.4) requires exactly one D1 rising edge per stimulus window; violations are categorized and reported as a classifier-stability outcome (§V.D). Across the campaign, 4,770 of 4,860 trials (98.15%) were included, no cell exceeding the pre-registered 10% exclusion ceiling.
+Each (pipeline, condition) cell comprises 9 blocks of 300 s. Block order across the 81-block campaign follows a pre-registered deterministic shuffle (seed 1990185399, derived from the v7.7 anchor commit f5bd702; recorded in v7.8 [4]). Within each block the orchestrator delivers 60 candidate transitions; latency is t(D1) − t(D0). Inclusion (pre-registered v7.4) requires exactly one D1 rising edge per stimulus window; violations are categorized and reported as a classifier-stability outcome (§V.D). Across the campaign, 4,770 of 4,860 trials (98.15%) were included, no cell exceeding the pre-registered 10% exclusion ceiling.
