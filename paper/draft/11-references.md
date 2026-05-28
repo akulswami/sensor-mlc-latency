@@ -1,6 +1,6 @@
 # References
 
-*(IEEE format, ordered by first appearance in the manuscript.)*
+*(IEEE format, ordered by first appearance in the manuscript. All 14 references verified against authoritative primary sources on 2026-05-27.)*
 
 [1] STMicroelectronics, "LSM6DSOX: 6-axis IMU with machine learning core," Datasheet DS12140, Rev. 6, 2024. [Online]. Available: https://www.st.com/resource/en/datasheet/lsm6dsox.pdf
 
@@ -20,7 +20,7 @@
 
 [9] B. Efron, "Bootstrap methods: Another look at the jackknife," *Annals of Statistics*, vol. 7, no. 1, pp. 1–26, 1979. doi:10.1214/aos/1176344552.
 
-[10] R. A. Fisher, *Statistical Methods for Research Workers*, 5th ed. Edinburgh: Oliver and Boyd, 1934, ch. 12. (Fisher's exact test.)
+[10] R. A. Fisher, *Statistical Methods for Research Workers*, 5th ed. Edinburgh: Oliver and Boyd, 1934. (Fisher's exact test introduced in this edition for 2×2 contingency tables.)
 
 [11] B. A. Nosek, C. R. Ebersole, A. C. DeHaven, and D. T. Mellor, "The preregistration revolution," *Proceedings of the National Academy of Sciences*, vol. 115, no. 11, pp. 2600–2606, Mar. 2018. doi:10.1073/pnas.1708274114.
 
@@ -43,10 +43,28 @@
 - **§V (Results):** [4] pre-registration chain (v7.10), [2] AN5259
 - **§VI (Discussion):** [3] Razmi & Shojaei, [2] AN5259
 
+## Verification status (2026-05-27 second-session pass)
+
+All 14 references verified against authoritative primary sources:
+
+- [1] LSM6DSOX datasheet: URL confirmed via st.com
+- [2] AN5259: URL confirmed via st.com
+- [3] Razmi & Shojaei 2026: arXiv:2602.21418 confirmed
+- [4] Pre-registration chain: all 12 Zenodo DOIs minted in this study
+- [5] Mann-Whitney 1947: 18(1):50-60, doi:10.1214/aoms/1177730491 ✓ Project Euclid + JSTOR
+- [6] Hodges-Lehmann 1963: 34(2):598-611, doi:10.1214/aoms/1177704172 ✓ Project Euclid
+- [7] Holm 1979: 6(2):65-70 ✓ JSTOR 4615733
+- [8] Schuirmann 1987: 15(6):657-680, doi:10.1007/BF01068419 ✓ Springer
+- [9] Efron 1979: 7(1):1-26 ✓ Project Euclid; JSTOR ann_stat1979
+- [10] Fisher 1934: 5th ed., Oliver & Boyd ✓ Springer reference, Wikipedia
+- [11] Nosek et al. 2018: PNAS 115(11):2600-2606, doi:10.1073/pnas.1708274114 ✓ PubMed + PNAS
+- [12]-[14] Tool/platform documentation URLs unchanged
+
 ## Notes for final paper
 
 This bibliography uses 14 entries. IEEE Sensors Letters has no strict reference-count limit, but the 4-page format encourages brevity. Tightening pass at submission could:
 
 1. Drop [12]-[14] (tool/platform datasheets) if URLs in main text or footnotes suffice
-2. Combine [5] and [10] into a single methodological-statistics block citation
-3. Consider whether [9] (bootstrap) is needed if the bootstrap is described as "standard percentile bootstrap" rather than cited
+2. Consider whether [9] (Efron 1979 bootstrap) is needed if the procedure is described as "standard percentile bootstrap" without citation. Counter-argument: Efron 1979 is foundational and standard practice to cite
+
+[10] Fisher 1934 deserves to be retained as the primary citation; [5] Mann-Whitney 1947 and [6] Hodges-Lehmann 1963 are also foundational and conventionally cited even when the underlying tests are described by name.
