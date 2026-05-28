@@ -27,12 +27,12 @@ Latency = t(D1 rising) − t(D0 rising) per pre-reg v7 Change 3.
 
 ## Observations
 
-### Pre-registered (H1'-H7' from v7.5/v7.6):
+### Pre-registered (H1'-H7' from v7.5/v7.6/v7.10):
 - **H1' (host < MLC at idle): SUPPORTED.** Host median 321.7µs vs MLC median 681.5µs (factor of 2.1x).
 - **H2' (host < MLC under contention): SUPPORTED.** Host i2c-contention 574.5µs vs MLC i2c-contention 1325.4µs (factor of 2.3x).
 - **H3' (MLC degrades more under contention): SUPPORTED.** MLC: 681.5 → 1325.4 (+95%). Host: 321.7 → 574.5 (+79%).
-- **H5' (CPU stress null for host latency): NOT SUPPORTED.** Host stress 345.0µs vs idle 321.7µs (~7% shift — small but nonzero; needs Mann-Whitney U).
-- **H7' (classifier stability degrades under contention): Not analyzed in this table (requires per-window classification analysis).**
+- **H5' (CPU stress null for host latency): SUPPORTED (equivalent).** Host stress 345.0µs vs idle 321.7µs. Formal TOST with ±30 µs margin: median diff +23.3 µs (90% CI [22.7, 23.7]) ⊂ [-30, +30]. Equivalence declared.
+- **H7' (classifier stability degrades under contention): NOT SUPPORTED, direction OPPOSITE to prediction.** MLC stability under i2c-contention (98.89%, 534/540) is slightly HIGHER than under idle (97.22%, 525/540); Fisher's exact one-sided in pre-reg direction p=0.9874; two-sided reference p=0.0755 (marginal, n.s.). Formally falsified in v7.10 (Zenodo DOI 10.5281/zenodo.20420866). Substantive implication: I²C contention adds latency (H2', H3') but does NOT degrade classifier reliability.
 
 ### Exploratory (post-hoc):
 - **Multimodal latency distributions** observed in mlc and mlc-binary pipelines under all conditions. mlc/idle shows modes at 480µs and 675µs separated by ~180µs. mlc-binary shows modes at 50µs, 230µs, and 450µs.
