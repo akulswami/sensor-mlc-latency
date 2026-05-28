@@ -1,0 +1,119 @@
+{
+  "campaign_id": "confirmatory-2026-05-26",
+  "generated_at": "2026-05-27T17:21:48.339555",
+  "pre_reg_anchor": "v7.6 Change 6 (Zenodo DOI 10.5281/zenodo.20400025)",
+  "hypothesis": {
+    "name": "H7'",
+    "description": "Classifier stability under I\u00b2C contention (MLC pipeline)",
+    "null": "stability(MLC | i2c-contention) >= stability(MLC | idle)",
+    "alternative": "stability(MLC | i2c-contention) < stability(MLC | idle)",
+    "pipeline_under_test": "mlc (bank-switch)",
+    "operationalization": "stable = trial has exactly 1 D1 in stimulus window (exclusion_reason NOT in {no_d1_in_window, multiple_d1_in_window})"
+  },
+  "per_condition_counts": {
+    "stress": {
+      "stable": 527,
+      "unstable": 13,
+      "no_d1": 1,
+      "multi_d1": 12,
+      "total": 540
+    },
+    "i2c-contention": {
+      "stable": 534,
+      "unstable": 6,
+      "no_d1": 1,
+      "multi_d1": 5,
+      "total": 540
+    },
+    "idle": {
+      "stable": 525,
+      "unstable": 15,
+      "no_d1": 2,
+      "multi_d1": 13,
+      "total": 540
+    }
+  },
+  "contingency_table_idle_vs_contention": {
+    "row_idle": [
+      525,
+      15
+    ],
+    "row_contention": [
+      534,
+      6
+    ]
+  },
+  "stability_rates": {
+    "idle": 0.9722222222222222,
+    "contention": 0.9888888888888889,
+    "diff_pp": 1.6666666666666718
+  },
+  "test_results": {
+    "fisher_one_sided_alternative_greater": {
+      "odds_ratio": 0.39325842696629215,
+      "p_value": 0.9874104784929155,
+      "interpretation": "alt='greater' tests OR>1, equivalent to H7'\u2081 (idle more stable than contention)"
+    },
+    "fisher_two_sided": {
+      "odds_ratio": 0.39325842696629215,
+      "p_value": 0.07548046629143221
+    },
+    "chi_square_two_sided": {
+      "statistic": 3.1080534196681504,
+      "p_value": 0.07790601842709467
+    }
+  },
+  "verdict": "NOT SUPPORTED (direction OPPOSITE to pre-reg prediction)",
+  "alpha": 0.05,
+  "rejected_one_sided_pre_reg_direction": false,
+  "direction_matches_prediction": false,
+  "holm_bonferroni_family": {
+    "family": [
+      "H1'",
+      "H2'",
+      "H3'",
+      "H6'",
+      "H7'"
+    ],
+    "alpha": 0.05,
+    "results": {
+      "H6'": {
+        "raw_p": 0.0,
+        "rank": 1,
+        "adjusted_p": 0.0,
+        "threshold": 0.01,
+        "rejected": true
+      },
+      "H1'": {
+        "raw_p": 1.8660627704516216e-170,
+        "rank": 2,
+        "adjusted_p": 7.464251081806487e-170,
+        "threshold": 0.0125,
+        "rejected": true
+      },
+      "H2'": {
+        "raw_p": 2.3317330777550803e-170,
+        "rank": 3,
+        "adjusted_p": 6.995199233265241e-170,
+        "threshold": 0.016666666666666666,
+        "rejected": true
+      },
+      "H3'": {
+        "raw_p": 9.999000099990002e-05,
+        "rank": 4,
+        "adjusted_p": 0.00019998000199980003,
+        "threshold": 0.025,
+        "rejected": true
+      },
+      "H7'": {
+        "raw_p": 0.9874104784929155,
+        "rank": 5,
+        "adjusted_p": 0.9874104784929155,
+        "threshold": 0.05,
+        "rejected": false
+      }
+    },
+    "note": "H5' uses TOST equivalence and is reported separately. It is not included in this Holm-Bonferroni family per convention."
+  },
+  "notes": "Three pre-registered hypotheses have been falsified during this study: H1 (btest scale, v7.5), H4' (long-duration jc-effective, v7.6), and H7' (this analysis). Each is recorded with empirical evidence; the pre-registration discipline preserves the audit trail."
+}
