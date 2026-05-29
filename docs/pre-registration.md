@@ -2612,3 +2612,22 @@ The paper's §VI discussion should note this finding alongside the H5'+H6' contr
 This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged as `prereg-amendment-2026-05-27-v7-10`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments. **Per v5 Change 4, the DOI is minted same-day; this amendment may not be referenced as authoritative in any commit, code, or paper draft until the Zenodo release is published and its DOI is inserted into the `Status` line above.**
 
 Per the v7.9 procedural lesson on Zenodo-timestamp ordering: this amendment is being filed AFTER the analysis was committed (`7ff5e40` on 2026-05-27) and BEFORE the paper draft text that depends on it. This sequence is acceptable because v7.10 records an empirical result without changing the pre-registered test logic — `run_h7_stability.py` calls only Fisher's exact (a standard scipy.stats function) and the chi-square reference, both of which were pre-registered in v7.6 Change 6 as the H7' test. No new test machinery is introduced here.
+
+## Amendment 2026-05-28 (v7.11): Addition of second author
+
+**Data-collection status at time of amendment:** All confirmatory campaign data (the 81-block, 4,860-trial campaign analyzed under H1'–H7') was collected prior to this amendment. No new data is collected for, or affected by, this amendment. This amendment concerns authorship attribution only and changes no hypothesis, design, measurement, exclusion, or analysis decision.
+
+**Change.** This study is amended from single-author to two-author. Dnyaneshwar Sonawane is added as an author alongside Akul Swami.
+
+**Contribution basis (ICMJE/IEEE authorship criteria).** D. Sonawane's contributions to the work are:
+- Design and physical construction of the servo-based motion-stimulus rig (SG90 servo + PCA9685 PWM controller).
+- Development and bench-testing of the servo control code used to deliver motion stimulus during latency trials.
+- Execution of a subset of the data-collection runs in the confirmatory campaign.
+
+A. Swami's contributions remain as in the original pre-registration and prior amendments (study design, pre-registration authorship, MLC/host pipeline implementation, measurement protocol, statistical analysis, and manuscript drafting).
+
+**Disclosure of timing.** This authorship amendment is filed after data collection and after the confirmatory statistical tests were run. The contributions on which D. Sonawane's authorship is based (rig construction, servo control code, data-collection runs) occurred *during* the apparatus-build and data-collection phases of the study, i.e. before and during the campaign, not after analysis. The amendment is filed late relative to those contributions; this entry documents the contributions and the date they are being formally recorded in the pre-registration. Prior amendments (v6.1–v7.10) were authored under a single-author framing and are not retroactively edited, per the append-only amendment rule.
+
+**Manuscript approval.** Both authors have reviewed and approved the manuscript version associated with this amendment prior to submission.
+
+**Authoritative timestamp.** This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged `prereg-amendment-2026-05-28-v7-11`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments; that DOI is the authoritative external timestamp. Per the same-day minting rule, this amendment may not be referenced as authoritative in any commit, code, or paper draft until the Zenodo release is published and its DOI is inserted into the Status line of this document.
