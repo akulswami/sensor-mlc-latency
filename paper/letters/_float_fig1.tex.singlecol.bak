@@ -1,6 +1,0 @@
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=\columnwidth]{figure_1_latency_boxplot.png}
-  \caption{Per-trial wire-level latency by pipeline and condition. The mlc-binary panel (zero I\textsuperscript{2}C transactions on the decision path) isolates the kernel/gpiod latency floor; note the per-panel $y$-axis scaling.}
-  \label{fig:latency}
-\end{figure}
