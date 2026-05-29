@@ -153,7 +153,7 @@ def main():
                 f"{n_above} outlier{'s' if n_above != 1 else ''}\nabove (max {max_val:.0f} µs)",
                 transform=ax.transAxes,
                 ha="right", va="top",
-                fontsize=7, color="dimgray", style="italic",
+                fontsize=7, color="#1a1a1a", style="italic",
                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white",
                           edgecolor="lightgray", linewidth=0.5, alpha=0.85),
             )
@@ -164,14 +164,6 @@ def main():
         ax.spines["right"].set_visible(False)
         ax.yaxis.grid(True, linestyle="--", alpha=0.4)
         ax.set_axisbelow(True)
-
-    # Footnote: explains boxplot conventions
-    fig.text(
-        0.5, -0.04,
-        "Box = IQR (Q1–Q3); whiskers = 1.5×IQR; △ = mean; ● = outlier. "
-        "Y-axes are capped per panel to preserve box-structure visibility; outliers above each cap are noted in-panel.",
-        ha="center", va="top", fontsize=7, color="dimgray", style="italic",
-    )
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     png_path = OUT_DIR / "figure_1_latency_boxplot.png"
