@@ -2,7 +2,7 @@
 
 ## IV.A Pre-registration
 
-All hypotheses, exclusion criteria, statistical tests, and multiplicity-correction strategies were specified in a public, version-controlled pre-registration with externally-timestamped Zenodo DOIs [4]. The chain contains 12 substantive amendments (v6.1–v7.10); each was minted as a Zenodo release on the same calendar day as its git tag, giving an audit-defensible timestamp ordering.
+All hypotheses, exclusion criteria, statistical tests, and multiplicity-correction strategies were specified in a public, version-controlled pre-registration with externally-timestamped Zenodo DOIs [4]. The chain contains 12 substantive amendments (v6.1–v7.10); each was minted as a Zenodo release on the same calendar day as its git tag, giving an audit-defensible timestamp ordering. Three pre-registered hypotheses were falsified during the study and remain on the public record rather than being removed. H1 (MLC faster than host at idle) and H4' (MLC idle energy below host) were falsified at pilot scale before the confirmatory campaign, prompting the reframing recorded in v7.5 and v7.6; H7' (MLC stability degrades under I²C contention) was falsified by the confirmatory campaign itself (v7.10), with the observed direction opposite to the prediction. Because each amendment is dated before the data it concerns, the chain distinguishes pre-specified predictions from outcomes rather than retrofitting hypotheses to results.
 
 ## IV.B Statistical tests and multiplicity correction
 
