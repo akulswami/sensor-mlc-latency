@@ -18,11 +18,11 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 ## V.B Multimodal latency distributions
 
-**Fig. 1** reveals previously-unreported multimodal structure in both MLC pipelines. The mlc/idle distribution is bimodal (mean 866.6 µs exceeds median 681.5 µs, with p95 reaching 1,780.7 µs), and mlc-binary/idle shows three modes near 60, 240, and 470 µs. Under contention and stress both collapse to tighter distributions, consistent with idle-state variance reflecting the kernel/I²C scheduler's full timing-edge variability when not load-pinned. We report this as exploratory; the mechanism requires kernel-level (ftrace) instrumentation beyond this study's scope.
+**Fig. 1** reveals multimodal structure in both MLC pipelines. The mlc/idle distribution is bimodal (mean 866.6 µs exceeds median 681.5 µs, with p95 reaching 1,780.7 µs), and mlc-binary/idle shows three modes near 60, 240, and 470 µs. Under contention and stress both collapse to tighter distributions, consistent with idle-state variance reflecting the kernel/I²C scheduler's full timing-edge variability when not load-pinned. We report this as exploratory; the mechanism requires kernel-level (ftrace) instrumentation beyond this study's scope.
 
 ## V.C MLC decision cadence
 
-Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T = 706.5 ms with empty inter-peak bins. T equals one-quarter of the MLC's 75-sample, 26 Hz window period (2.885 s / 4 = 0.721 s; empirical peak 0.7065 s). In this configuration, the quantization is consistent with the MLC updating only on its internal window-cadence clock rather than the host read path; we did not find it described in ST application notes [2] or the LSM6DSOX datasheet.
+Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T = 706.5 ms with empty inter-peak bins. T is consistent with approximately one-quarter of the MLC's 75-sample, 26 Hz window period (2.885 s / 4 = 0.721 s; empirical peak 0.7065 s, a ~2% difference). In this configuration, the quantization is consistent with the MLC updating only on its internal window-cadence clock rather than the host read path; we did not find it described in ST application notes [2] or the LSM6DSOX datasheet.
 
 ## V.D Exclusion rates
 
