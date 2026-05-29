@@ -16,7 +16,7 @@ Three pipelines are compared end-to-end, sharing the same I²C arbitration, gpio
 
 **(b) mlc** (latency_test_mlc_w75): on each INT1 edge, performs the three I²C transactions of the bank-switch read (write FUNC_CFG_ACCESS = 0x80 to enter the embedded bank, read MLC0_SRC = 0x70, write FUNC_CFG_ACCESS = 0x00 to return), writing D1 if the output changed.
 
-**(c) mlc-binary** (latency_test_mlc_binary_w75): on each INT1 edge, unconditionally toggles D1 without reading MLC0_SRC, valid for the 2-class case and providing a kernel/gpiod-only latency floor against which (b)'s I²C-read overhead is measured.
+**(c) mlc-binary** (latency_test_mlc_binary_w75): on each INT1 edge, unconditionally toggles D1 without reading MLC0_SRC, valid for the 2-class case and providing a kernel/gpiod-only latency floor against which (b)'s I²C-read overhead is measured. Because this study measures decision-delivery latency rather than classification accuracy, parity is enforced at the level of identical accelerometer configuration, window length, and binary motion/still decision semantics; the mlc-binary condition isolates the non-classifier read path.
 
 ## III.C Stress Conditions
 

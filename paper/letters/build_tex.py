@@ -53,9 +53,24 @@ def md_inline_to_tex(s):
         '\u201c': r'``', '\u201d': r"''",
         '\u2018': r'`',  '\u2019': r"'",
         '\u2032': r"'",
+        '<': r'\textless{}',           # < literal (breaks under newtxmath)
+        '>': r'\textgreater{}',        # > literal
     }
     for k, v in uni.items():
         s = s.replace(k, v)
+    # Straight double-quotes -> LaTeX open/close (converter already maps curly;
+    # source uses straight " which else renders as '' both ends).
+    def pair_quotes(text):
+        out = []
+        open_q = True
+        for c in text:
+            if c == '"':
+                out.append('``' if open_q else "''")
+                open_q = not open_q
+            else:
+                out.append(c)
+        return ''.join(out)
+    s = pair_quotes(s)
     # Fig./Table bold refs already handled by **; leave as text
     return s
 

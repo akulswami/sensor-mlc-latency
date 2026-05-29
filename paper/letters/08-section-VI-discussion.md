@@ -12,11 +12,11 @@ A naive reading of "on-sensor inference is faster" would favor the MLC for low-l
 
 The control results sharpen the practical lesson: **"stress" is not a single thing.** CPU stress is significant on energy (H6', +3,420 mW) but null on host latency (H5') and on classifier reliability; I²C bus contention is significant on latency (H2', H3') but null on classifier reliability (H7' falsified; the stable-trial rate is, if anything, slightly higher under contention). A specification bundling both into one "stress margin" over-provisions one axis while under-provisioning the other.
 
-## VI.C Multimodal distributions and intrinsic cadence
+## VI.C Multimodal distributions and decision cadence
 
 Two secondary findings carry safety-critical weight. First, the MLC pipelines are multimodal at idle (§V.B): the mlc/idle p95 of 1,781 µs is 2.6× its median, a factor that vanishes under a unimodal-Gaussian assumption. For a "worst latency observed with probability 1 − ε" specification, the upper mode, not the median, is the relevant quantity.
 
-Second, the 706.5 ms decision cadence (§V.C) is the dominant contributor to *stimulus-to-decision* latency at the system level. Because the MLC fires only on its internal clock boundary, an unsynchronized real-world stimulus waits a uniformly-distributed 0–706.5 ms (mean 353 ms) before the silicon can respond. This is invisible on the D0-to-D1 wire-level axis we measured but is a structural floor; the 1–2 ms wire-level differences this paper characterizes are second-order against it.
+Second, for unsynchronized external stimuli, the observed 706.5 ms cadence (§V.C) can dominate full *stimulus-to-decision* latency at the system level. Because the MLC fires only on its internal clock boundary, an unsynchronized real-world stimulus waits a uniformly-distributed 0–706.5 ms (mean 353 ms) before the silicon can respond. This is invisible on the D0-to-D1 wire-level axis we measured but is a structural floor; the 1–2 ms wire-level differences this paper characterizes are second-order against it.
 
 ## VI.D Limitations
 
