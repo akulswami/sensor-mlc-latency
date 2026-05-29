@@ -1,6 +1,6 @@
 # §V. Results
 
-The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 300 s; 4,770 (98.15%) satisfied the pre-registered inclusion criteria. All blocks achieved 100% jc-effectiveness under MAXN_SUPER_JC. Per-cell latency distributions appear in **Fig. 1**; summary statistics in **Table I**.
+The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 300 s; 4,770 (98.15%) satisfied the pre-registered inclusion criteria. All blocks achieved 100% jetson_clocks effectiveness under MAXN_SUPER_JC. Per-cell latency distributions appear in **Fig. 1**; summary statistics in **Table I**.
 
 ## V.A Confirmatory tests
 

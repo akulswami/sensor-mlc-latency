@@ -2,7 +2,7 @@
 
 ## II.A On-sensor inference in MEMS IMUs
 
-Embedded machine learning in 6-axis MEMS IMUs is now a standard product feature. STMicroelectronics introduced the Machine Learning Core (MLC) in the LSM6DSOX [2], a configurable decision-tree engine running at the accelerometer ODR (26 Hz in our deployment) that consumes features over sliding sample windows and emits class labels the host reads via I²C bank-switched registers. Successor parts (LSM6DSV16X [3], LSM6DSO32X) retain this architecture, and competing vendors offer analogues (Bosch BHI260AP, Analog Devices ADXL367). The consistent commercial messaging is that on-sensor inference reduces data-bus traffic, host CPU utilization, and end-to-end latency. The first two claims are testable from system-level metrics; the third is testable only with wire-level instrumentation, which is rarely performed.
+Embedded machine learning in 6-axis microelectromechanical systems (MEMS) IMUs is now a standard product feature. STMicroelectronics introduced the MLC in the LSM6DSOX [2], a configurable decision-tree engine running at the accelerometer ODR (26 Hz in our deployment) that consumes features over sliding sample windows and emits class labels the host reads via I²C bank-switched registers. Successor parts (LSM6DSV16X [3], LSM6DSO32X) retain this architecture, and competing vendors offer analogues (Bosch BHI260AP, Analog Devices ADXL367). The consistent commercial messaging is that on-sensor inference reduces data-bus traffic, host CPU utilization, and end-to-end latency. The first two claims are testable from system-level metrics; the third is testable only with wire-level instrumentation, which is rarely performed.
 
 ## II.B Wire-level latency in safety-critical edge ML
 
