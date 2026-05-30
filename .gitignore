@@ -64,3 +64,4 @@ data/training/latency-experiment/**/digital.csv
 # Compiled binaries (host inference)
 code/jetson/host_inference/replay_parity
 code/jetson/host_inference/replay_host
+paper/letters/arxiv_build/
