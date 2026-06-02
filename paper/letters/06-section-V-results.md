@@ -26,4 +26,4 @@ Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T
 
 ## V.D Exclusion rates
 
-No cell exceeded the pre-registered 10% exclusion ceiling (highest: mlc/idle, 2.78%). The dominant exclusion category (68 of 90 trials) was multiple D1 edges per window, attributable to the 706.5 ms cadence interacting with stimulus-window boundaries.
+No cell exceeded the pre-registered 10% exclusion ceiling (highest: mlc/idle, 2.78%). The dominant exclusion category (68 of 90 trials) was multiple D1 edges per window, attributable to the 706.5 ms cadence interacting with stimulus-window boundaries. The single-rising-edge inclusion requirement is, by construction, the same criterion as the H7' classifier-stability outcome (Section V.A); the per-cell included and stable-window counts are one measurement reported on two axes.
