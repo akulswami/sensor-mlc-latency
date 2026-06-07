@@ -6,7 +6,7 @@ The edge platform is an NVIDIA Jetson Orin Nano Developer Kit (JetPack 6.2.2, ke
 
 The sensor is an STMicroelectronics LSM6DSOX 6-axis IMU breakout (STEVAL-MKI197V1) on I²C bus 7 (pins 3/5, address 0x6A), the bus running at 400 kHz (Fast Mode, Jetson default). All three pipelines configure the accelerometer identically (CTRL1_XL = 0x50: 208 Hz, ±2 g, LPF2 off). The MLC runs at 26 Hz with a custom 2-class motion/still classifier (75-sample windows, config mlc_motion_w75.h) trained in ST MEMS Studio, with output routed to INT1.
 
-Two Jetson GPIO lines are instrumented with a Saleae Logic Pro 8 (250 MS/s): **D0** on pin 15 (INT1 from the LSM6DSOX, gpiochip0 line 85) and **D1** on pin 11 (decision edge from the pipeline under test, line 112). This yields nanosecond-resolution wire-level timestamps independent of the Jetson clock and of SSH command jitter (both D0 and D1 are wire edges). The wire-level GPIO timestamping methodology follows our prior cross-platform characterization [9]. Motion stimulus is an SG90 servo on a PCA9685 PWM controller (I²C bus 1, address 0x41 via an A0 solder bridge to avoid the on-board INA3221 at 0x40), commanded over SSH.
+Two Jetson GPIO lines are instrumented with a Saleae Logic Pro 8 (250 MS/s): **D0** on pin 15 (INT1 from the LSM6DSOX, gpiochip0 line 85) and **D1** on pin 11 (decision edge from the pipeline under test, line 112). This yields nanosecond-resolution wire-level timestamps independent of the Jetson clock and of SSH command jitter (both D0 and D1 are wire edges). The servo PWM command is additionally captured on D2 as a timing reference. The wire-level GPIO timestamping methodology follows our prior cross-platform characterization [9]. Motion stimulus is an SG90 servo on a PCA9685 PWM controller (I²C bus 1, address 0x60; the board default 0x40 collides with the on-board INA3221, so an address-select pad was bridged to set the A5 bit, relocating the controller to 0x60), commanded over SSH. FIGSETUPREF
 
 ## III.B Pipelines Under Test
 
@@ -14,7 +14,7 @@ Three pipelines are compared end-to-end, sharing the same I²C arbitration, gpio
 
 **(a) host** (host_pipeline_parity): polls the accelerometer at 208 Hz, assembles a 75-sample window, and applies a decision-tree classifier (variance of accelerometer L2-norm against a calibrated threshold), toggling D1 on every output state change.
 
-**(b) mlc** (latency_test_mlc_w75): on each INT1 edge, performs the three I²C transactions of the bank-switch read (write FUNC_CFG_ACCESS = 0x80 to enter the embedded bank, read MLC0_SRC = 0x70, write FUNC_CFG_ACCESS = 0x00 to return), writing D1 if the output changed.
+**(b) mlc** (latency_test_mlc_w75): on each INT1 edge, performs the three I²C transactions of the bank-switch read mandated by the LSM6DSOX register architecture [2] (write FUNC_CFG_ACCESS = 0x80 to enter the embedded-function bank, read MLC0_SRC = 0x70, write FUNC_CFG_ACCESS = 0x00 to restore the user bank), writing D1 if the output changed.
 
 **(c) mlc-binary** (latency_test_mlc_binary_w75): on each INT1 edge, unconditionally toggles D1 without reading MLC0_SRC, valid for the 2-class case and providing a kernel/gpiod-only latency floor against which (b)'s I²C-read overhead is measured. Because this study measures decision-delivery latency rather than classification accuracy, parity is enforced at the level of identical accelerometer configuration, window length, and binary motion/still decision semantics; the mlc-binary condition isolates the non-classifier read path.
 

@@ -14,16 +14,16 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 **H6' (CPU stress positive for energy): SUPPORTED.** Mean VDD_IN (INA3221 via tegrastats) rises from 5,206 mW (idle) to 8,626 mW (stress): +3,420 mW [+3,410, +3,429], exceeding the pre-registered +1,000 mW threshold threefold. The power axis distinguishes CPU stress unambiguously where the latency axis (H5') cannot.
 
-**H7' (MLC stability degrades under contention): FALSIFIED, direction opposite.** The fraction of stimulus windows with exactly one D1 rising edge is 97.22% (525/540) at idle versus 98.89% (534/540) under contention, a +1.67 percentage-point *increase* rather than the predicted decrease. Fisher's exact test in the pre-registered direction gives p = 0.9874 (two-sided p = 0.0755). H7' is formally falsified in pre-registration v7.10 [4]. I²C contention slows the MLC pipeline (H2', H3') but does not degrade the silicon's classifier reliability.
+**H7' (MLC stability degrades under contention): FALSIFIED, direction opposite**. The fraction of stimulus windows with exactly one D1 rising edge is 97.22% (525/540) at idle versus 98.89% (534/540) under contention, a +1.67 percentage-point *increase* rather than the predicted decrease. Fisher's exact test in the pre-registered direction gives p = 0.9874 (two-sided p = 0.0755). H7' is formally falsified in pre-registration v7.10 [4]. I²C contention slows the MLC pipeline (H2', H3') but does not degrade the silicon's classifier reliability.
 
 ## V.B Multimodal latency distributions
 
-**Fig. 1** reveals multimodal structure in both MLC pipelines. The mlc/idle distribution is bimodal (mean 866.6 µs exceeds median 681.5 µs, with p95 reaching 1,780.7 µs), and mlc-binary/idle shows three modes near 60, 240, and 470 µs. Under contention and stress both collapse to tighter distributions, consistent with idle-state variance reflecting the kernel/I²C scheduler's full timing-edge variability when not load-pinned. We report this as exploratory; the mechanism requires kernel-level (ftrace) instrumentation beyond this study's scope.
+**Fig. 1** reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 µs exceeds median 681.5 µs, p95 1,780.7 µs), and mlc-binary/idle shows three modes near 60, 240, and 470 µs. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
 
 ## V.C MLC decision cadence
 
-Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T = 706.5 ms with empty inter-peak bins. T is consistent with approximately one-quarter of the MLC's 75-sample, 26 Hz window period (2.885 s / 4 = 0.721 s; empirical peak 0.7065 s, a ~2% difference). In this configuration, the quantization is consistent with the MLC updating only on its internal window-cadence clock rather than the host read path; we did not find it described in ST application notes [2] or the LSM6DSOX datasheet.
+Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T = 706.5 ms, approximately one-quarter of the MLC's 75-sample, 26 Hz window period (0.721 s expected). The quantization is consistent with the MLC updating only on its internal window-cadence clock, a behavior we did not find documented in ST application notes [2].
 
 ## V.D Exclusion rates
 
-No cell exceeded the pre-registered 10% exclusion ceiling (highest: mlc/idle, 2.78%). The dominant exclusion category (68 of 90 trials) was multiple D1 edges per window, attributable to the 706.5 ms cadence interacting with stimulus-window boundaries. The single-rising-edge inclusion requirement is, by construction, the same criterion as the H7' classifier-stability outcome (Section V.A); the per-cell included and stable-window counts are one measurement reported on two axes.
+No cell exceeded the pre-registered 10% exclusion ceiling (highest: mlc/idle, 2.78%). The dominant exclusion category (68 of 90 trials) was multiple D1 edges per window, attributable to the 706.5 ms cadence interacting with stimulus-window boundaries. Inclusion and the H7' stability outcome are the same single-edge criterion, reported once each.

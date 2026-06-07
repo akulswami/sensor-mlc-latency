@@ -1,0 +1,33 @@
+\documentclass[11pt]{letter}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext}
+\usepackage[margin=1in]{geometry}
+\usepackage{parskip}
+\usepackage{url}
+\pagestyle{empty}
+\signature{Akul Swami (corresponding author), on behalf of the authors\\Independent Researcher\\swami.akul@alumni.uml.edu}
+\begin{document}
+\begin{letter}{Editor-in-Chief\\IEEE Sensors Letters}
+\opening{Dear Editor-in-Chief,}
+
+We respectfully resubmit our manuscript, ``Wire-Level Interrupt-to-Decision Latency of On-Sensor MLC versus Host Inference on the NVIDIA Jetson Orin Nano: A Pre-Registered Measurement Study,'' as a Regular Letter, revised to address the editorial office's request that the contribution be stated explicitly and tied to the scope of IEEE Sensors Letters. We are grateful for the specific scope guidance and have revised both this letter and the manuscript accordingly.
+
+\textbf{The contribution is a property of the sensor device, not generic system overhead.} We wish to address directly a reading the work may invite: that the dominant latency we report is generic bus-protocol or host-scheduling overhead, with the sensor incidental. It is not. The latency is imposed by the LSM6DSOX MLC's own output architecture. The MLC classification result resides in register MLC0\_SRC, located in the sensor's embedded-function register bank, not its user bank; per the LSM6DSOX register architecture, reading it requires a mandatory three-transaction bank-switch sequence that is not bypassable on the standard read path for any multi-class configuration. Our control pipeline isolates this precisely: a variant that omits the embedded-bank read collapses to a 49\,$\mu$s median, demonstrating that the dominant cost is the sensor's decision-delivery protocol, not host computation or generic I\textsuperscript{2}C arbitration. The finding is therefore a quantitative characterization of a commercial sensor device's deployment capability---squarely a sensor-systems contribution, not algorithmic development.
+
+\textbf{Significance and novelty.} On-sensor machine learning, exemplified by the MLC in the STMicroelectronics LSM6DSOX, is widely promoted as a low-latency alternative to host-side inference, yet the wire-level latency of the sensor's read path is rarely measured directly. To our knowledge, no prior published work measures wire-level interrupt-to-decision latency of an on-sensor IMU MLC against a host-side pipeline; vendor application notes and independent characterizations report MLC architecture and accuracy but not the read-path latency we isolate. The state of the art for this specific sensor property is that it has not been measured; we provide the first such characterization, and it inverts the assumed advantage: host-side inference is 2.1--2.3$\times$ faster than the on-sensor MLC under all tested conditions. We additionally document a reproducible 706.5\,ms MLC decision cadence that bounds full stimulus-to-decision latency.
+
+\textbf{Experimental validation and new sensor data.} The study reports original, experimentally collected data---4,770 included trials of wire-level timing on physical hardware captured with a logic analyzer; no public dataset is used. The revised manuscript adds a photograph of the physical measurement setup (Fig.~2: the LSM6DSOX on a servo-driven motion stimulus, the Jetson Orin Nano, the PCA9685 controller, and the Saleae logic analyzer with the instrumented GPIO lines), documenting the apparatus as requested. The full protocol is pre-registered with externally-timestamped Zenodo amendments, including three hypotheses falsified on the public record---an audit-defensible framework we believe is novel for sensor-measurement claims.
+
+\textbf{Comparison with prior and related work.} We have no previously published or submitted work on this specific topic in any archival journal. We do have two related preprints from the same research program on wire-level timing measurement of edge ML systems, cited for transparency; both share only the external GPIO logic-analyzer methodology and neither studies on-sensor MLC versus host latency, the LSM6DSOX, or the I\textsuperscript{2}C bank-switch read protocol that is this manuscript's central contribution:
+\begin{enumerate}
+\item A.~Swami and N.~Chougule, ``Per-Platform GPIO Overhead in Hardware-Validated Edge ML Inference Timing,'' arXiv:2605.02835 --- GPIO instrumentation overhead across Jetson and Raspberry Pi using an ECG CNN workload; no sensor MLC, no I\textsuperscript{2}C read path.
+\item A.~Swami and N.~Chougule, ``Architecture Dependent Temporal Observability Under Deployment Interference in Edge Inference Systems,'' arXiv:2605.17701 --- timing-observability of a MobileNetV2 vision workload under stress; no inertial sensor, no on-sensor inference.
+\end{enumerate}
+
+\textbf{Preprint posting (similarity disclosure).} A preprint of the present manuscript is available on arXiv (eess.SY): \url{https://arxiv.org/abs/2606.00524}. Any similarity flagged against this preprint or the related works above reflects the authors' own prior or concurrent postings, not third-party material or duplicate peer-reviewed publication. This manuscript has not been published in, in press at, or submitted to any other peer-reviewed venue.
+
+We confirm that all authors meet the IEEE authorship criteria and have approved this submission. We thank you for the opportunity to clarify and resubmit.
+
+\closing{Sincerely,}
+\end{letter}
+\end{document}

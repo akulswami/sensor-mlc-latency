@@ -6,8 +6,8 @@ Embedded machine learning in 6-axis microelectromechanical systems (MEMS) IMUs i
 
 ## II.B Wire-level latency in safety-critical edge ML
 
-A growing class of edge-AI applications depends on bounded stimulus-to-actuation latency: wearable exoskeleton control [3], industrial predictive-maintenance alarms, healthcare arrhythmia and fall detection. In each, "the classification is correct" is necessary but not sufficient; "the classification reaches the actuator in time" is the safety-relevant property. Yet vendor application notes report MLC architecture and accuracy without end-to-end latency [2], and independent characterizations measure host-side interrupt-to-action latency without measuring how the read protocol contributes to the wire-level delay. That gap, between functional and timing correctness, is the failure mode conventional functional testing misses.
+Safety-critical edge applications require bounded stimulus-to-actuation latency, not merely correct classification. Existing MLC documentation emphasizes architecture and accuracy [2], while independent characterizations rarely isolate the sensor read protocol's contribution to decision-delivery delay.
 
 ## II.C Pre-registration in sensor measurement
 
-Pre-registration, the externally-timestamped specification of hypotheses, exclusion criteria, tests, and multiplicity correction before data collection, is established in clinical trials and common in psychology and machine learning but rare in sensor measurement. We apply it here: externally-timestamped Zenodo DOIs provide a chain of custody distinguishing pre-specified hypotheses from post-hoc rationalization, with all methodology changes recorded as dated amendments against the public repository.
+Pre-registration is used here to separate pre-specified sensor-measurement hypotheses from post-hoc interpretation.

@@ -4,7 +4,7 @@
 
 The headline finding, that host classification is 2.1–2.3× faster than the on-sensor MLC under every tested condition, is explained by **Fig. 1(c)**: the mlc-binary pipeline, which performs zero I²C transactions on the decision path (toggling D1 unconditionally on every INT1 edge), reaches a median of 49.4 µs under contention. The mlc-minus-mlc-binary difference under identical conditions isolates the I²C read overhead at roughly 1,276 µs under contention (1,325.4 − 49.4) and 476 µs under stress. This cost is not the silicon's classification time; it is the bank-switch read protocol's three-transaction sequence (write FUNC_CFG_ACCESS, read MLC0_SRC, write it back) competing for bus arbitration.
 
-Two consequences follow. Any platform using the LSM6DSOX MLC over I²C inherits this overhead by construction: the bank-switch protocol is neither optional nor bypassable on the standard read path. And the overhead scales with bus contention, not classifier complexity: a deeper decision tree would not change the per-decision I²C cost, but a busier bus would. The host-MLC gap is overwhelmingly a bus-protocol artifact, not a classifier-architecture one.
+Thus, the measured host-MLC gap is primarily a bus-protocol artifact. Systems using the LSM6DSOX MLC over I²C inherit the bank-switch read overhead on the standard read path, and this overhead scales with bus contention rather than classifier complexity.
 
 ## VI.B Implications for safety-critical edge ML
 

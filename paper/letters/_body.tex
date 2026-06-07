@@ -2,11 +2,11 @@
 
 Inertial measurement units (IMUs) with embedded Machine Learning Cores (MLCs) are increasingly deployed in edge applications spanning wearables, industrial monitoring, and biomedical instrumentation \cite{ref1}. The MLC paradigm runs a decision-tree classifier inside the sensor and exposes only an output register to the host. It is often framed as a latency and energy advantage over host-side classification \cite{ref2,ref3}, on the implicit assumption that on-sensor inference is unconditionally lower-latency because the host need only poll a single register.
 
-This assumption is rarely tested with wire-level instrumentation. Vendor application notes characterize MLC architecture and per-class accuracy but not end-to-end stimulus-to-decision latency \cite{ref2}. Even recent safety-critical applications such as exoskeleton control \cite{ref3} cite the on-sensor latency advantage without measuring it directly. The resulting gap between ``the classification is correct'' and ``the classification reaches the host in time to act'' is the failure mode conventional functional testing misses.
+This assumption is rarely tested with wire-level instrumentation. Vendor application notes characterize MLC architecture and per-class accuracy but not end-to-end stimulus-to-decision latency \cite{ref2}. Even recent safety-critical applications such as exoskeleton control \cite{ref3} cite the on-sensor latency advantage without measuring it directly. The resulting gap between ``the classification is correct'' and ``the classification reaches the host in time to act'' is the failure mode conventional functional testing misses. Framed in sensor-system terms, the question is whether a commercial on-sensor inference engine can deliver its decision to the host within a latency budget---a deployment-capability property of the sensor device itself, dictated by how it exposes its on-chip inference output, not by any host-side algorithm.
 
 We measure wire-level interrupt-to-decision latency (sensor INT1 edge to host decision GPIO) for three pipelines on a representative edge platform (NVIDIA Jetson Orin Nano + STMicroelectronics LSM6DSOX over I\textsuperscript{2}C) using a Saleae Logic Pro 8 logic analyzer: (a) a host-side decision-tree classifier reading raw accelerometer data, (b) the standard MLC bank-switch read protocol, and (c) an MLC binary-fast variant that omits the I\textsuperscript{2}C read entirely, toggling the decision GPIO on every MLC interrupt (valid for a 2-class configuration). Measurements span idle, I\textsuperscript{2}C bus contention, and CPU saturation. The full protocol was pre-registered with 12 externally-timestamped Zenodo amendments before confirmatory data collection \cite{ref4}.
 
-The principal finding is that the host pipeline exhibits lower median wire-level latency than the standard MLC bank-switch pipeline under all tested conditions, with the three-transaction I\textsuperscript{2}C read protocol, not the silicon's classification, as the dominant latency contributor. Our contributions are: (1) the first pre-registered wire-level latency characterization of the LSM6DSOX MLC versus host-side inference (4,770 of 4,860 trials included, 98.15\%, across nine pipeline$\times$condition cells); (2) empirical identification of the I\textsuperscript{2}C read-protocol overhead as a dominant contributor on this platform, with structural relevance to systems using bank-switched register access for on-sensor ML output; (3) characterization of a reproducible 706.5 ms MLC decision cadence (one quarter of the 75-sample $\times$ 26 Hz window) that bounds full stimulus-to-decision latency; and (4) pre-registration with externally-timestamped Zenodo DOIs as an audit-defensible framework for sensor-measurement claims.
+The principal finding is that the host pipeline exhibits lower median wire-level latency than the standard MLC bank-switch pipeline under all tested conditions, with the three-transaction I\textsuperscript{2}C read protocol, not the silicon's classification, as the dominant latency contributor. Thus, the contribution is a quantitative characterization of a sensor-device output path---INT1 assertion, embedded-bank readout, and host-visible decision delivery---not a new AI/ML classifier. Our contributions are: (1) the first pre-registered wire-level latency characterization of the LSM6DSOX MLC versus host-side inference (4,770 of 4,860 trials included, 98.15\%, across nine pipeline$\times$condition cells); (2) empirical identification of the LSM6DSOX MLC's mandatory embedded-bank read protocol---not its classifier---as the dominant latency contributor, a property intrinsic to the sensor's output architecture; (3) characterization of a reproducible 706.5 ms MLC decision cadence (one quarter of the 75-sample $\times$ 26 Hz window) that bounds full stimulus-to-decision latency; and (4) pre-registration with externally-timestamped Zenodo DOIs as an audit-defensible framework for sensor-measurement claims.
 
 
 \section{Background and Related Work}
@@ -17,11 +17,11 @@ Embedded machine learning in 6-axis microelectromechanical systems (MEMS) IMUs i
 
 \subsection{Wire-level latency in safety-critical edge ML}
 
-A growing class of edge-AI applications depends on bounded stimulus-to-actuation latency: wearable exoskeleton control \cite{ref3}, industrial predictive-maintenance alarms, healthcare arrhythmia and fall detection. In each, ``the classification is correct'' is necessary but not sufficient; ``the classification reaches the actuator in time'' is the safety-relevant property. Yet vendor application notes report MLC architecture and accuracy without end-to-end latency \cite{ref2}, and independent characterizations measure host-side interrupt-to-action latency without measuring how the read protocol contributes to the wire-level delay. That gap, between functional and timing correctness, is the failure mode conventional functional testing misses.
+Safety-critical edge applications require bounded stimulus-to-actuation latency, not merely correct classification. Existing MLC documentation emphasizes architecture and accuracy \cite{ref2}, while independent characterizations rarely isolate the sensor read protocol's contribution to decision-delivery delay.
 
 \subsection{Pre-registration in sensor measurement}
 
-Pre-registration, the externally-timestamped specification of hypotheses, exclusion criteria, tests, and multiplicity correction before data collection, is established in clinical trials and common in psychology and machine learning but rare in sensor measurement. We apply it here: externally-timestamped Zenodo DOIs provide a chain of custody distinguishing pre-specified hypotheses from post-hoc rationalization, with all methodology changes recorded as dated amendments against the public repository.
+Pre-registration is used here to separate pre-specified sensor-measurement hypotheses from post-hoc interpretation.
 
 
 \section{Experimental Setup}
@@ -32,7 +32,7 @@ The edge platform is an NVIDIA Jetson Orin Nano Developer Kit (JetPack 6.2.2, ke
 
 The sensor is an STMicroelectronics LSM6DSOX 6-axis IMU breakout (STEVAL-MKI197V1) on I\textsuperscript{2}C bus 7 (pins 3/5, address 0x6A), the bus running at 400 kHz (Fast Mode, Jetson default). All three pipelines configure the accelerometer identically (CTRL1\_XL = 0x50: 208 Hz, $\pm$2 g, LPF2 off). The MLC runs at 26 Hz with a custom 2-class motion/still classifier (75-sample windows, config mlc\_motion\_w75.h) trained in ST MEMS Studio, with output routed to INT1.
 
-Two Jetson GPIO lines are instrumented with a Saleae Logic Pro 8 (250 MS/s): \textbf{D0} on pin 15 (INT1 from the LSM6DSOX, gpiochip0 line 85) and \textbf{D1} on pin 11 (decision edge from the pipeline under test, line 112). This yields nanosecond-resolution wire-level timestamps independent of the Jetson clock and of SSH command jitter (both D0 and D1 are wire edges). The wire-level GPIO timestamping methodology follows our prior cross-platform characterization \cite{ref9}. Motion stimulus is an SG90 servo on a PCA9685 PWM controller (I\textsuperscript{2}C bus 1, address 0x41 via an A0 solder bridge to avoid the on-board INA3221 at 0x40), commanded over SSH.
+Two Jetson GPIO lines are instrumented with a Saleae Logic Pro 8 (250 MS/s): \textbf{D0} on pin 15 (INT1 from the LSM6DSOX, gpiochip0 line 85) and \textbf{D1} on pin 11 (decision edge from the pipeline under test, line 112). This yields nanosecond-resolution wire-level timestamps independent of the Jetson clock and of SSH command jitter (both D0 and D1 are wire edges). The servo PWM command is additionally captured on D2 as a timing reference. The wire-level GPIO timestamping methodology follows our prior cross-platform characterization \cite{ref9}. Motion stimulus is an SG90 servo on a PCA9685 PWM controller (I\textsuperscript{2}C bus 1, address 0x60; the board default 0x40 collides with the on-board INA3221, so an address-select pad was bridged to set the A5 bit, relocating the controller to 0x60), commanded over SSH. The full measurement setup is shown in Fig.~\ref{fig:setup}.
 
 \subsection{Pipelines Under Test}
 
@@ -40,7 +40,7 @@ Three pipelines are compared end-to-end, sharing the same I\textsuperscript{2}C 
 
 \textbf{(a) host} (host\_pipeline\_parity): polls the accelerometer at 208 Hz, assembles a 75-sample window, and applies a decision-tree classifier (variance of accelerometer L2-norm against a calibrated threshold), toggling D1 on every output state change.
 
-\textbf{(b) mlc} (latency\_test\_mlc\_w75): on each INT1 edge, performs the three I\textsuperscript{2}C transactions of the bank-switch read (write FUNC\_CFG\_ACCESS = 0x80 to enter the embedded bank, read MLC0\_SRC = 0x70, write FUNC\_CFG\_ACCESS = 0x00 to return), writing D1 if the output changed.
+\textbf{(b) mlc} (latency\_test\_mlc\_w75): on each INT1 edge, performs the three I\textsuperscript{2}C transactions of the bank-switch read mandated by the LSM6DSOX register architecture \cite{ref2} (write FUNC\_CFG\_ACCESS = 0x80 to enter the embedded-function bank, read MLC0\_SRC = 0x70, write FUNC\_CFG\_ACCESS = 0x00 to restore the user bank), writing D1 if the output changed.
 
 \textbf{(c) mlc-binary} (latency\_test\_mlc\_binary\_w75): on each INT1 edge, unconditionally toggles D1 without reading MLC0\_SRC, valid for the 2-class case and providing a kernel/gpiod-only latency floor against which (b)'s I\textsuperscript{2}C-read overhead is measured. Because this study measures decision-delivery latency rather than classification accuracy, parity is enforced at the level of identical accelerometer configuration, window length, and binary motion/still decision semantics; the mlc-binary condition isolates the non-classifier read path.
 
@@ -57,7 +57,7 @@ Each (pipeline, condition) cell comprises 9 blocks of 300~s. Block order across 
 
 \subsection{Pre-registration}
 
-All hypotheses, exclusion criteria, statistical tests, and multiplicity-correction strategies were specified in a public, version-controlled pre-registration with externally-timestamped Zenodo DOIs \cite{ref4}. The chain spans amendments v6.1--v7.11: 12 substantive amendments (v6.1--v7.10) record hypothesis and methodology changes, and v7.11 is an administrative author addition. Each was minted as a Zenodo release on the same calendar day as its git tag, giving an audit-defensible timestamp ordering. Throughout, an unprimed label denotes an original pilot-stage hypothesis and its primed counterpart the reframed confirmatory restatement after pilot-stage falsification. Three pre-registered hypotheses were falsified during the study and remain on the public record rather than being removed. H1 (MLC faster than host at idle) and H4' (MLC idle energy below host) were falsified at pilot scale before the confirmatory campaign, prompting the reframing recorded in v7.5 and v7.6; H7' (MLC stability degrades under I\textsuperscript{2}C contention) was falsified by the confirmatory campaign itself (v7.10), with the observed direction opposite to the prediction. Because each amendment is dated before the data it concerns, the chain distinguishes pre-specified predictions from outcomes rather than retrofitting hypotheses to results.
+Hypotheses, exclusions, statistical tests, and multiplicity correction were specified in a public pre-registration chain with Zenodo DOIs \cite{ref4}. The chain records substantive hypothesis and methodology changes before the affected confirmatory data. Three falsified hypotheses remain on the public record: pilot-stage H1 and H4', and confirmatory H7'. Thus, the record distinguishes pre-specified predictions from post-hoc interpretation.
 
 \subsection{Statistical tests and multiplicity correction}
 
@@ -100,6 +100,14 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
   \end{tabular}
 \end{table}
 
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.72\columnwidth]{figure_2_setup_full.jpeg}
+  \caption{Measurement setup. The LSM6DSOX IMU (on a servo-driven motion stimulus) and the PCA9685 servo controller connect to the NVIDIA Jetson Orin Nano over separate I\textsuperscript{2}C buses; a Saleae Logic Pro 8 taps the sensor INT1 edge (D0), the host decision GPIO (D1), and the servo PWM command (D2) for wire-level timing.}
+  \label{fig:setup}
+\end{figure}
+
+
 \subsection{Confirmatory tests}
 
 \textbf{H1' (host \textless{} MLC at idle): SUPPORTED.} Host idle median (321.7 $\mu$s) is 359 $\mu$s below MLC bank-switch idle (681.5 $\mu$s), a 2.1$\times$ host speedup. The Hodges-Lehmann shift is $\Delta$HL = $-$359.3 $\mu$s, 95\% bootstrap CI [$-$373.6, $-$352.5] (10,000 iterations); Mann-Whitney p = 1.87 $\times$ 10\textsuperscript{-170}, rejected at the Holm-Bonferroni threshold across the {H1', H2', H3', H6', H7'} family.
@@ -112,19 +120,19 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 \textbf{H6' (CPU stress positive for energy): SUPPORTED.} Mean VDD\_IN (INA3221 via tegrastats) rises from 5,206 mW (idle) to 8,626 mW (stress): +3,420 mW [+3,410, +3,429], exceeding the pre-registered +1,000 mW threshold threefold. The power axis distinguishes CPU stress unambiguously where the latency axis (H5') cannot.
 
-\textbf{H7' (MLC stability degrades under contention): FALSIFIED, direction opposite.} The fraction of stimulus windows with exactly one D1 rising edge is 97.22\% (525/540) at idle versus 98.89\% (534/540) under contention, a +1.67 percentage-point \emph{increase} rather than the predicted decrease. Fisher's exact test in the pre-registered direction gives p = 0.9874 (two-sided p = 0.0755). H7' is formally falsified in pre-registration v7.10 \cite{ref4}. I\textsuperscript{2}C contention slows the MLC pipeline (H2', H3') but does not degrade the silicon's classifier reliability.
+\textbf{H7' (MLC stability degrades under contention): FALSIFIED, direction opposite}. The fraction of stimulus windows with exactly one D1 rising edge is 97.22\% (525/540) at idle versus 98.89\% (534/540) under contention, a +1.67 percentage-point \emph{increase} rather than the predicted decrease. Fisher's exact test in the pre-registered direction gives p = 0.9874 (two-sided p = 0.0755). H7' is formally falsified in pre-registration v7.10 \cite{ref4}. I\textsuperscript{2}C contention slows the MLC pipeline (H2', H3') but does not degrade the silicon's classifier reliability.
 
 \subsection{Multimodal latency distributions}
 
-\textbf{Fig. 1} reveals multimodal structure in both MLC pipelines. The mlc/idle distribution is bimodal (mean 866.6 $\mu$s exceeds median 681.5 $\mu$s, with p95 reaching 1,780.7 $\mu$s), and mlc-binary/idle shows three modes near 60, 240, and 470 $\mu$s. Under contention and stress both collapse to tighter distributions, consistent with idle-state variance reflecting the kernel/I\textsuperscript{2}C scheduler's full timing-edge variability when not load-pinned. We report this as exploratory; the mechanism requires kernel-level (ftrace) instrumentation beyond this study's scope.
+\textbf{Fig. 1} reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 $\mu$s exceeds median 681.5 $\mu$s, p95 1,780.7 $\mu$s), and mlc-binary/idle shows three modes near 60, 240, and 470 $\mu$s. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
 
 \subsection{MLC decision cadence}
 
-Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T = 706.5 ms with empty inter-peak bins. T is consistent with approximately one-quarter of the MLC's 75-sample, 26 Hz window period (2.885 s / 4 = 0.721 s; empirical peak 0.7065 s, a ~2\% difference). In this configuration, the quantization is consistent with the MLC updating only on its internal window-cadence clock rather than the host read path; we did not find it described in ST application notes \cite{ref2} or the LSM6DSOX datasheet.
+Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T = 706.5 ms, approximately one-quarter of the MLC's 75-sample, 26 Hz window period (0.721 s expected). The quantization is consistent with the MLC updating only on its internal window-cadence clock, a behavior we did not find documented in ST application notes \cite{ref2}.
 
 \subsection{Exclusion rates}
 
-No cell exceeded the pre-registered 10\% exclusion ceiling (highest: mlc/idle, 2.78\%). The dominant exclusion category (68 of 90 trials) was multiple D1 edges per window, attributable to the 706.5 ms cadence interacting with stimulus-window boundaries. The single-rising-edge inclusion requirement is, by construction, the same criterion as the H7' classifier-stability outcome (Section V.A); the per-cell included and stable-window counts are one measurement reported on two axes.
+No cell exceeded the pre-registered 10\% exclusion ceiling (highest: mlc/idle, 2.78\%). The dominant exclusion category (68 of 90 trials) was multiple D1 edges per window, attributable to the 706.5 ms cadence interacting with stimulus-window boundaries. Inclusion and the H7' stability outcome are the same single-edge criterion, reported once each.
 
 
 \section{Discussion}
@@ -133,7 +141,7 @@ No cell exceeded the pre-registered 10\% exclusion ceiling (highest: mlc/idle, 2
 
 The headline finding, that host classification is 2.1--2.3$\times$ faster than the on-sensor MLC under every tested condition, is explained by \textbf{Fig. 1(c)}: the mlc-binary pipeline, which performs zero I\textsuperscript{2}C transactions on the decision path (toggling D1 unconditionally on every INT1 edge), reaches a median of 49.4 $\mu$s under contention. The mlc-minus-mlc-binary difference under identical conditions isolates the I\textsuperscript{2}C read overhead at roughly 1,276 $\mu$s under contention (1,325.4 $-$ 49.4) and 476 $\mu$s under stress. This cost is not the silicon's classification time; it is the bank-switch read protocol's three-transaction sequence (write FUNC\_CFG\_ACCESS, read MLC0\_SRC, write it back) competing for bus arbitration.
 
-Two consequences follow. Any platform using the LSM6DSOX MLC over I\textsuperscript{2}C inherits this overhead by construction: the bank-switch protocol is neither optional nor bypassable on the standard read path. And the overhead scales with bus contention, not classifier complexity: a deeper decision tree would not change the per-decision I\textsuperscript{2}C cost, but a busier bus would. The host-MLC gap is overwhelmingly a bus-protocol artifact, not a classifier-architecture one.
+Thus, the measured host-MLC gap is primarily a bus-protocol artifact. Systems using the LSM6DSOX MLC over I\textsuperscript{2}C inherit the bank-switch read overhead on the standard read path, and this overhead scales with bus contention rather than classifier complexity.
 
 \subsection{Implications for safety-critical edge ML}
 

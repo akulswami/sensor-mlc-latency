@@ -138,12 +138,18 @@ body = '\n\n'.join(convert_section(os.path.join(LETTERS, f)) for f in order)
 import os as _os
 _fig = open(_os.path.join(LETTERS, "_float_fig1.tex")).read()
 _tab = open(_os.path.join(LETTERS, "_float_tableI.tex")).read()
+_fig2 = open(_os.path.join(LETTERS, "_float_fig2_setup.tex")).read()
+# In-text marker emits only the reference (float placed later so boxplot=Fig.1, photo=Fig.2)
+if "FIGSETUPREF" in body:
+    body = body.replace("FIGSETUPREF", r"The full measurement setup is shown in Fig.~\ref{fig:setup}.", 1)
+else:
+    print("WARN: FIGSETUPREF marker not found")
 _ref_sentence = r"summary statistics in \textbf{Table I}."
 if _ref_sentence in body:
-    body = body.replace(_ref_sentence, _ref_sentence + "\n\n" + _fig + "\n\n" + _tab, 1)
+    body = body.replace(_ref_sentence, _ref_sentence + "\n\n" + _fig + "\n\n" + _tab + "\n\n" + _fig2, 1)
 else:
     # fallback: append at end if anchor sentence not found
-    body = body + "\n\n" + _fig + "\n\n" + _tab
+    body = body + "\n\n" + _fig + "\n\n" + _tab + "\n\n" + _fig2
     print("WARN: V-ref sentence not found; floats appended at end")
 
 
