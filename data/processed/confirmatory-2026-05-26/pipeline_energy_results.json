@@ -1,0 +1,201 @@
+{
+  "generated_at": "2026-09-14T12:20:57.996329",
+  "note": "POST-HOC analysis added in response to review. Not part of pre-reg v7.5/v7.6. VDD_CPU_GPU_CV isolates Jetson-side compute power; it excludes the LSM6DSOX's on-sensor MLC engine current, which is measured separately via PPK2.",
+  "campaign_id": "confirmatory-2026-05-26",
+  "subsample_factor": 10,
+  "n_bootstrap_resamples": 10000,
+  "comparisons": [
+    {
+      "condition": "i2c-contention",
+      "rail": "VDD_CPU_GPU_CV",
+      "a_label": "host/i2c-contention",
+      "a_n": 5441,
+      "a_mean_mw": 1083.4104024995406,
+      "b_label": "mlc/i2c-contention",
+      "b_n": 5461,
+      "b_mean_mw": 1076.119025819447,
+      "diff_mw": 7.291376680093663,
+      "diff_ci_95pct_mw": [
+        3.942782487378355,
+        10.726372998745562
+      ],
+      "mwu_p_value_subsampled": 5.4639070764011324e-08
+    },
+    {
+      "condition": "i2c-contention",
+      "rail": "VDD_CPU_GPU_CV",
+      "a_label": "host/i2c-contention",
+      "a_n": 5441,
+      "a_mean_mw": 1083.4104024995406,
+      "b_label": "mlc-binary/i2c-contention",
+      "b_n": 5440,
+      "b_mean_mw": 1070.8459558823529,
+      "diff_mw": 12.564446617187741,
+      "diff_ci_95pct_mw": [
+        9.190647179773384,
+        15.947699319809123
+      ],
+      "mwu_p_value_subsampled": 1.3940313694117618e-15
+    },
+    {
+      "condition": "i2c-contention",
+      "rail": "VDD_IN",
+      "a_label": "host/i2c-contention",
+      "a_n": 5441,
+      "a_mean_mw": 5510.710531152362,
+      "b_label": "mlc/i2c-contention",
+      "b_n": 5461,
+      "b_mean_mw": 5502.054568760301,
+      "diff_mw": 8.655962392061156,
+      "diff_ci_95pct_mw": [
+        4.476162254742144,
+        12.848661914911258
+      ],
+      "mwu_p_value_subsampled": 0.004314478173127356
+    },
+    {
+      "condition": "i2c-contention",
+      "rail": "VDD_IN",
+      "a_label": "host/i2c-contention",
+      "a_n": 5441,
+      "a_mean_mw": 5510.710531152362,
+      "b_label": "mlc-binary/i2c-contention",
+      "b_n": 5440,
+      "b_mean_mw": 5497.558455882353,
+      "diff_mw": 13.152075270008936,
+      "diff_ci_95pct_mw": [
+        8.981561510947609,
+        17.38298950489666
+      ],
+      "mwu_p_value_subsampled": 7.190563671515169e-07
+    },
+    {
+      "condition": "idle",
+      "rail": "VDD_CPU_GPU_CV",
+      "a_label": "host/idle",
+      "a_n": 5473,
+      "a_mean_mw": 833.2927096656313,
+      "b_label": "mlc/idle",
+      "b_n": 5439,
+      "b_mean_mw": 802.1548078690936,
+      "diff_mw": 31.137901796537676,
+      "diff_ci_95pct_mw": [
+        27.84642893675801,
+        34.42923017395363
+      ],
+      "mwu_p_value_subsampled": 8.437441981408508e-92
+    },
+    {
+      "condition": "idle",
+      "rail": "VDD_CPU_GPU_CV",
+      "a_label": "host/idle",
+      "a_n": 5473,
+      "a_mean_mw": 833.2927096656313,
+      "b_label": "mlc-binary/idle",
+      "b_n": 5440,
+      "b_mean_mw": 801.4862132352941,
+      "diff_mw": 31.80649643033712,
+      "diff_ci_95pct_mw": [
+        28.4567936086309,
+        35.15444772583451
+      ],
+      "mwu_p_value_subsampled": 2.2743957911606485e-106
+    },
+    {
+      "condition": "idle",
+      "rail": "VDD_IN",
+      "a_label": "host/idle",
+      "a_n": 5473,
+      "a_mean_mw": 5230.428649735063,
+      "b_label": "mlc/idle",
+      "b_n": 5439,
+      "b_mean_mw": 5193.155175583747,
+      "diff_mw": 37.273474151315895,
+      "diff_ci_95pct_mw": [
+        33.17000852805104,
+        41.42546036053845
+      ],
+      "mwu_p_value_subsampled": 7.432148525555339e-91
+    },
+    {
+      "condition": "idle",
+      "rail": "VDD_IN",
+      "a_label": "host/idle",
+      "a_n": 5473,
+      "a_mean_mw": 5230.428649735063,
+      "b_label": "mlc-binary/idle",
+      "b_n": 5440,
+      "b_mean_mw": 5195.587132352941,
+      "diff_mw": 34.84151738212222,
+      "diff_ci_95pct_mw": [
+        30.660789054019688,
+        38.99913954852557
+      ],
+      "mwu_p_value_subsampled": 7.632906908451317e-88
+    },
+    {
+      "condition": "stress",
+      "rail": "VDD_CPU_GPU_CV",
+      "a_label": "host/stress",
+      "a_n": 5442,
+      "a_mean_mw": 4094.608599779493,
+      "b_label": "mlc/stress",
+      "b_n": 5437,
+      "b_mean_mw": 4101.575133345595,
+      "diff_mw": -6.966533566101589,
+      "diff_ci_95pct_mw": [
+        -28.772150907927674,
+        14.644274764488248
+      ],
+      "mwu_p_value_subsampled": 1.3750002995524872e-08
+    },
+    {
+      "condition": "stress",
+      "rail": "VDD_CPU_GPU_CV",
+      "a_label": "host/stress",
+      "a_n": 5442,
+      "a_mean_mw": 4094.608599779493,
+      "b_label": "mlc-binary/stress",
+      "b_n": 5434,
+      "b_mean_mw": 4114.020610967979,
+      "diff_mw": -19.412011188486304,
+      "diff_ci_95pct_mw": [
+        -40.87683537351867,
+        1.2641200368134242
+      ],
+      "mwu_p_value_subsampled": 8.794056157187126e-27
+    },
+    {
+      "condition": "stress",
+      "rail": "VDD_IN",
+      "a_label": "host/stress",
+      "a_n": 5442,
+      "a_mean_mw": 8618.77967658949,
+      "b_label": "mlc/stress",
+      "b_n": 5437,
+      "b_mean_mw": 8623.075041383116,
+      "diff_mw": -4.295364793626504,
+      "diff_ci_95pct_mw": [
+        -26.34171641968628,
+        17.75709148499072
+      ],
+      "mwu_p_value_subsampled": 0.00181615581517909
+    },
+    {
+      "condition": "stress",
+      "rail": "VDD_IN",
+      "a_label": "host/stress",
+      "a_n": 5442,
+      "a_mean_mw": 8618.77967658949,
+      "b_label": "mlc-binary/stress",
+      "b_n": 5434,
+      "b_mean_mw": 8636.18052999632,
+      "diff_mw": -17.40085340683072,
+      "diff_ci_95pct_mw": [
+        -39.302293848725775,
+        3.7906229114403573
+      ],
+      "mwu_p_value_subsampled": 7.731689142869606e-16
+    }
+  ]
+}
