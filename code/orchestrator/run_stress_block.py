@@ -342,9 +342,23 @@ def run_block(args) -> int:
         else:
             raise ValueError(f"unknown pipeline: {args.pipeline}")
 
+        if args.affinity_pin:
+            # Affinity experiment (R1 pt.2): dedicate core 2 to the latency
+            # path - snapshot natural IRQ distribution, steer i2c/gpio IRQs.
+            block_local.mkdir(parents=True, exist_ok=True)
+            r = ssh("grep -Ei 'i2c|gpio' /proc/interrupts", capture=True)
+            (block_local / "interrupts_before.txt").write_text(r.stdout or "")
+            ssh(
+                "for irq in $(awk 'BEGIN{IGNORECASE=1} /i2c|gpio/ {print $1}' "
+                "/proc/interrupts | tr -d ':'); do "
+                "echo 4 | sudo tee /proc/irq/$irq/smp_affinity >/dev/null; done",
+                check=False,
+            )
+        pin_prefix = "taskset -c 2 " if args.affinity_pin else ""
+
         pipeline_inner = (
             f"timeout {duration_sec} "
-            f"{pipeline_bin} {pipeline_extra_args} "
+            f"{pin_prefix}{pipeline_bin} {pipeline_extra_args} "
             f"> {pipeline_remote_log} 2>&1; "
             f"echo $? > {pipeline_exit_file}"
         )
@@ -364,12 +378,14 @@ def run_block(args) -> int:
             pipeline_pid = None
             print(f"[block-runner] WARNING: could not parse pipeline pid: {pipeline_pid_str!r}")
         block_metadata["pipeline_pid"] = pipeline_pid
+        block_metadata["affinity_pin"] = bool(getattr(args, "affinity_pin", False))
         print(f"[block-runner]   pipeline binary pid: {pipeline_pid}")
 
         sweep_remote_log = f"{block_remote}/sweep.log"
         print("[block-runner] Starting servo_sweep --mode burst in background...")
+        sweep_prefix = "taskset -c 0 " if args.affinity_pin else ""
         sweep_cmd = (
-            f"sudo nohup {JETSON_SERVO_SWEEP} "
+            f"sudo nohup {sweep_prefix}{JETSON_SERVO_SWEEP} "
             f"--mode burst "
             f"--motion-ms 5000 --still-ms 5000 --burst-period-ms 1000 "
             f"--duration {duration_sec} "
@@ -644,6 +660,12 @@ def main():
     parser.add_argument(
         "--btest", action="store_true",
         help="Force btest mode: 30s duration, btest suffix on directory."
+    )
+    parser.add_argument(
+        "--affinity-pin", action="store_true",
+        help="Affinity experiment (R1 pt.2, 2026-09-21): pipeline on core 2 "
+             "via taskset, i2c/gpio IRQs steered to core 2, servo_sweep on "
+             "core 0. Default off: campaign blocks run unpinned."
     )
     args = parser.parse_args()
 
