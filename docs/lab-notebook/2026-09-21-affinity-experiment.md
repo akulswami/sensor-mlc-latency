@@ -56,11 +56,13 @@ jc_eff was 100.00% on every block.
 | Block | Duration | Condition | n | Median (µs) | IQR (µs) | frac_high |
 |---|---|---|---|---|---|---|
 | smoke3 (`--affinity-pin`) | 60 s | pinned | 10/12 included | 47.6 | — | — |
-| b001 (`--affinity-pin`) | 300 s | pinned | 55 | 47.5 | (45.7, 50.6) | 0.000 |
-| b002 (`--affinity-pin`) | 300 s | pinned | 60 | 46.9 | (45.2, 48.9) | 0.000 |
-| b003 (`--affinity-pin`) | 300 s | pinned | 59 | 48.3 | (46.1, 50.1) | 0.000 |
-| ctrl001 (unpinned, same session) | 300 s | unpinned | 58 | 48.3 | (44.9, 50.2) | 0.000 |
+| b001 (`--affinity-pin`) | 300 s | pinned | 55 | 47.5 | (45.7, 50.4) | 0.000 |
+| b002 (`--affinity-pin`) | 300 s | pinned | 60 | 46.9 | (45.2, 48.8) | 0.000 |
+| b003 (`--affinity-pin`) | 300 s | pinned | 59 | 48.3 | (46.2, 50.1) | 0.000 |
+| ctrl001 (unpinned, same session) | 300 s | unpinned | 58 | 48.3 | (45.0, 50.2) | 0.000 |
 | mlc001 (`--pipeline mlc`, `--affinity-pin`) | 300 s | pinned | 59 | 481.8 | — | — (mlc trace block; R1 pt.3 figure source) |
+
+IQRs: numpy linear quantiles (campaign-consistent method).
 
 Pooled across the four mlc-binary blocks (b001, b002, b003, ctrl001;
 55+60+59+58=232 included trials): **232/232 trials < 150 µs.**
