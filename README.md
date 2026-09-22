@@ -4,7 +4,7 @@ Wire-level latency comparison of on-sensor Machine Learning Core (MLC) inference
 
 **Target venue:** IEEE Sensors Letters (4-page format)
 
-**Status:** Confirmatory campaign complete; manuscript finalized. Preprint: arXiv:2606.00524 (https://arxiv.org/abs/2606.00524). Submitted to IEEE Sensors Letters.
+**Status:** Minor revision in progress for IEEE Sensors Letters (due 2026-09-28). Affinity experiment (R1 pt.2) complete: systematic negative — process/IRQ placement excluded as the cause of the mlc-binary idle tri-modal latency distribution. Remaining rig item: PPK2 sensor-side energy capture. Remaining desk items: manuscript 26→104 Hz text pass, response letter, p95/p99/max table, graphical-abstract qualifier. Preprint: arXiv:2606.00524 (https://arxiv.org/abs/2606.00524).
 
 ## Overview
 
