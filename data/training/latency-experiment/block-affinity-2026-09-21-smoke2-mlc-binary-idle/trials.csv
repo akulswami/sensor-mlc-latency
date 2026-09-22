@@ -1,0 +1,13 @@
+trial_id,stimulus_type,t_stim_s,t_d0_s,t_d1_s,latency_us,included,exclusion_reason
+0,still_to_motion,2.99468994,,2.99468996,,False,multiple_d1_in_window
+1,motion_to_still,7.99657676,,7.99657678,,False,multiple_d1_in_window
+2,still_to_motion,12.99847278,,12.9984728,,False,multiple_d1_in_window
+3,motion_to_still,18.00031588,,18.16767068,,False,multiple_d1_in_window
+4,still_to_motion,23.00201872,,23.00201874,,False,multiple_d1_in_window
+5,motion_to_still,28.00376564,,28.00376566,,False,multiple_d1_in_window
+6,still_to_motion,33.0052555,,33.1726364,,False,multiple_d1_in_window
+7,motion_to_still,38.0069368,,38.15569034,,False,multiple_d1_in_window
+8,still_to_motion,43.00849182,,43.00849186,,False,multiple_d1_in_window
+9,motion_to_still,48.0099277,,48.25163876,,False,multiple_d1_in_window
+10,still_to_motion,53.01148232,,53.21604724,,False,multiple_d1_in_window
+11,motion_to_still,58.0316946,,58.03169462,,False,multiple_d1_in_window

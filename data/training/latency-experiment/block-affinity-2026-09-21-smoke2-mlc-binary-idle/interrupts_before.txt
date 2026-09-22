@@ -1,0 +1,9 @@
+114:         38          0          0          0          0          0     GICv3  57 Level     3160000.i2c
+115:          0          0          0          0          0          0     GICv3  59 Level     3180000.i2c
+116:          0          0          0          0          0          0     GICv3  62 Level     31b0000.i2c
+167:      17276          0          0          0          0          0     GICv3  58 Level     c240000.i2c
+168:        674          0          0          0          0          0     GICv3  64 Level     c250000.i2c
+228:          0          0          0          0          0          0  2200000.gpio  35 Edge      Force Recovery
+229:          0          0          0          0          0          0  c2f0000.gpio  27 Edge      Power
+230:          0          0          0          0          0          0  2200000.gpio  42 Edge      3400000.mmc cd
+242:          0          0          0          0          0          0  2200000.gpio 131 Level     1-0025
