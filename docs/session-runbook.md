@@ -347,3 +347,51 @@ record another one. With 3 sessions minimum, having a 4th is fine.
 Once you have 3 sessions marked `Use: YES`, the data is ready for the
 next step: MEMS Studio classifier training. See `docs/training-data-spec.md`
 section "Feature set" for the configuration to use.
+
+---
+
+## 2026-09-21 session rules
+
+Added after the 2026-09-21 affinity-experiment session, which lost
+significant time to a D1 channel that appeared connected (`gpiod`
+claims succeeded) but was not actually driving the pin, and to
+terminal-paste mixups between windows.
+
+### (a) Square-wave gate before any block
+
+Run before starting any block that measures D1:
+
+```bash
+~/sensor-mlc-latency/.venv/bin/python3 code/analysis/sqw_gate.py
+```
+
+PASS requires **both** ≥400 D1 edges and ≥400 level-holds in the
+4.5-5.5 ms range, in the busiest 5 s window of a 12 s capture. If it
+fails, do not proceed to a measurement block — see rule (b).
+
+### (b) gpiod success ≠ pin driving
+
+A successful `gpiod` claim on a line does not mean the pin is
+electrically driving. If a claimed line doesn't wiggle on the Saleae,
+check the pinmux before assuming a software or wiring bug — pin 11
+must be in GPIO mode, not SFIO. SFIO mode lets `gpiod` claim the line
+successfully while the pad itself never toggles.
+
+### (c) Explicit `.venv` interpreter; one terminal window at a time
+
+Invoke all project Python via
+`~/sensor-mlc-latency/.venv/bin/python3`, never a bare `python3`.
+Keep to one terminal window at a time when pasting commands —
+2026-09-21 lost time to pastes crossing between windows (fake
+`(.venv)` prompts, corrupted heredocs from a paste landing in the
+wrong window).
+
+### Restated from existing rules above
+
+- `jetson_clocks` is volatile: nvpmodel can reassert `MIN_FREQ` at any
+  time and defeat it non-deterministically. Re-apply every session and
+  verify per-block via the jc_eff ≥ 99% rule (see
+  `run_stress_block.py`'s `compute_jc_eff`), not just
+  `jetson_clocks --show` immediately after apply.
+- PCA9685 loses its configuration on every power cycle. Re-init before
+  any session (see "PCA9685 initialization" above).
