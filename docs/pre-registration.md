@@ -2631,3 +2631,35 @@ A. Swami's contributions remain as in the original pre-registration and prior am
 **Manuscript approval.** Both authors have reviewed and approved the manuscript version associated with this amendment prior to submission.
 
 **Authoritative timestamp.** This amendment is committed to the public repository at github.com/akulswami/sensor-mlc-latency and the commit is tagged `prereg-amendment-2026-05-28-v7-11`. The repository release is mirrored to Zenodo with a new DOI distinct from prior amendments; that DOI is the authoritative external timestamp (doi:10.5281/zenodo.20437893). Per the same-day minting rule, this amendment may not be referenced as authoritative in any commit, code, or paper draft until the Zenodo release is published and its DOI is inserted into the Status line of this document. **Satisfied: doi:10.5281/zenodo.20437893.**
+
+## Amendment v7.12 (2026-09-21): R1 pt.2 affinity investigation — completed, hypothesis falsified
+
+**Status:** Committed. Zenodo DOI pending (per v5 Change 4, same-day minting rule); this amendment may not be referenced as authoritative in any commit, code, or paper draft until the Zenodo release is published and its DOI is inserted here.
+
+**Motivation.** IEEE Sensors Letters decision SENSL-26-06-RL-0906 (2026-09-14, minor revision), reviewer R1 pt.2, requested a systematic investigation of the block-sticky tri-modal latency distribution observed in the confirmatory campaign's mlc-binary idle condition (modes at approximately 60/240/470 µs). This amendment records that investigation's pre-registered branches and its result.
+
+**Pre-registered branches (both written before results were collected):**
+
+- **Branch A**: if the pinned blocks are unimodal AND the same-session unpinned control is tri-modal, process/IRQ placement is confirmed as the cause of the campaign tri-modality.
+- **Branch B**: if both pinned and unpinned blocks are unimodal, placement is excluded as the cause; report a systematic negative with remaining suspects.
+
+**Method summary.** Using the `--affinity-pin` flag added to `code/orchestrator/run_stress_block.py` in commit `8a3a03a` (default off, so it does not alter the confirmatory campaign's own unpinned protocol): the pipeline binary is pinned to CPU core 2 via `taskset`, `servo_sweep` is pinned to core 0, and IRQ steering is attempted (writing `smp_affinity` for every `i2c`/`gpio`-matching line in `/proc/interrupts`) before the pipeline starts. Three pinned mlc-binary/idle blocks (b001-b003, 300 s each), one same-session unpinned mlc-binary/idle control (ctrl001, 300 s, no `--affinity-pin`), and one pinned mlc bank-switch trace block (mlc001, 300 s, `--pipeline mlc`, source of the R1 pt.3 trace figure) were captured 2026-09-21 against the Saleae Logic Pro 8 (device `6F657C15C3EEE446`), jc_eff 100.00% on every block.
+
+**Results:**
+
+| Block | Duration | Condition | n | Median (µs) | IQR (µs) | frac_high |
+|---|---|---|---|---|---|---|
+| smoke3 (`--affinity-pin`) | 60 s | pinned | 10/12 included | 47.6 | — | — |
+| b001 (`--affinity-pin`) | 300 s | pinned | 55 | 47.5 | (45.7, 50.6) | 0.000 |
+| b002 (`--affinity-pin`) | 300 s | pinned | 60 | 46.9 | (45.2, 48.9) | 0.000 |
+| b003 (`--affinity-pin`) | 300 s | pinned | 59 | 48.3 | (46.1, 50.1) | 0.000 |
+| ctrl001 (unpinned, same session) | 300 s | unpinned | 58 | 48.3 | (44.9, 50.2) | 0.000 |
+| mlc001 (`--pipeline mlc`, `--affinity-pin`) | 300 s | pinned | 59 | 481.8 | — | — (trace block) |
+
+Pooled across b001, b002, b003, and ctrl001: 232/232 trials < 150 µs. Against the 2026-05-26 confirmatory campaign's unpinned mlc-binary idle data (159 low / 372 mid+high of 531 trials, pooled across all 9 confirmatory mlc-binary/idle blocks): Fisher exact OR ≈ 0, p ≈ 1.3e-71.
+
+**Verdict: Branch B obtained.** Process placement is excluded as the cause of the campaign tri-modality — the pattern is absent under both the pinned condition and the same-session unpinned control. IRQ routing is excluded as a variable on independent grounds: the matched IRQs are Tegra GPIO-controller chained interrupts, non-steerable by platform design (`smp_affinity` writes return `EIO`), and the sensor INT1 handler's routing is fixed to CPU 0 regardless of the steering attempt. This is a systematic negative result; the campaign's Table 1 confirmatory data is unaffected and unchanged. See `docs/lab-notebook/2026-09-21-affinity-experiment.md` for the full investigation record, including the session's separate D1-channel (pin 11 pinmux) failure and resolution, which is unrelated to the affinity hypothesis itself.
+
+**Amendment count.** Per the counting convention established for this chain (12 substantive amendments v6.1–v7.10; v7.11 administrative, not counted as substantive — see `paper/letters/_body.tex` bibitem ref4 and `07-section-IV-methodology.md`), this is the **13th substantive amendment** in the chain (v6.1–v7.12).
+
+**What is NOT changed by this amendment:** the confirmatory campaign's pre-registered data, hypotheses H1'-H7', and statistical results (Table 1 and all downstream analysis) are unaffected. No prior amendment (v6.1 through v7.11) is edited, per the append-only amendment rule.
