@@ -2634,7 +2634,7 @@ A. Swami's contributions remain as in the original pre-registration and prior am
 
 ## Amendment v7.12 (2026-09-21): R1 pt.2 affinity investigation — completed, hypothesis falsified
 
-**Status:** Committed. Zenodo DOI pending (per v5 Change 4, same-day minting rule); this amendment may not be referenced as authoritative in any commit, code, or paper draft until the Zenodo release is published and its DOI is inserted here.
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.22907481 (https://doi.org/10.5281/zenodo.22907481). DOI minted 2026-09-22, one day post-commit; the same-day gap is recorded in amendment v7.13 and is not concealed.
 
 **Motivation.** IEEE Sensors Letters decision SENSL-26-06-RL-0906 (2026-09-14, minor revision), reviewer R1 pt.2, requested a systematic investigation of the block-sticky tri-modal latency distribution observed in the confirmatory campaign's mlc-binary idle condition (modes at approximately 60/240/470 µs). This amendment records that investigation's pre-registered branches and its result.
 
@@ -2663,3 +2663,47 @@ Pooled across b001, b002, b003, and ctrl001: 232/232 trials < 150 µs. Against t
 **Amendment count.** Per the counting convention established for this chain (12 substantive amendments v6.1–v7.10; v7.11 administrative, not counted as substantive — see `paper/letters/_body.tex` bibitem ref4 and `07-section-IV-methodology.md`), this is the **13th substantive amendment** in the chain (v6.1–v7.12).
 
 **What is NOT changed by this amendment:** the confirmatory campaign's pre-registered data, hypotheses H1'-H7', and statistical results (Table 1 and all downstream analysis) are unaffected. No prior amendment (v6.1 through v7.11) is edited, per the append-only amendment rule.
+
+## Amendment v7.13 (2026-09-22): Correction to v7.12 — characterization of the affinity-analysis branches
+
+**Status:** Pre-registered. Zenodo DOI: [pending — mint same-day per v5 Change 4].
+
+**Change.** v7.12 describes its two outcome-interpretation branches as
+"Pre-registered branches (both written before results were collected)."
+This amendment restates that characterization precisely.
+
+The two branches were recorded in the session working log at **13:41 PDT
+on 2026-09-21**, prior to the first valid measurement of the investigation
+(smoke3, 20:47 PDT) and prior to all 300-s blocks. The verbatim record is
+preserved at `docs/lab-notebook/2026-09-21-affinity-experiment-analysis-branches.md`.
+The quantitative mode-collapse criterion (frac_high = 0 in at least 2 of 3
+pinned blocks) and the same-session unpinned control (ctrl001) were fixed
+during the same evening, after the pinned blocks were captured but before
+the control result and before the final analysis. Formalization into this
+chain (v7.12, commit 97fb629) occurred after data collection.
+
+The branches are therefore **pre-specified analysis criteria from dated
+working notes**, formalized post-collection. They were **not** externally
+timestamped before the data, and neither v7.12 nor this amendment claims
+otherwise. The investigation's evidentiary force — a controlled experiment
+with a same-session control, interpreted against criteria fixed before the
+verdict was known — is unaffected by this restatement.
+
+**Procedural lesson (standing rule).** Any analysis criterion, success
+threshold, or interpretation branch the authors intend to describe as
+"pre-registered" must be committed to this chain (and Zenodo-timestamped
+per v5 Change 4) **before** the data it interprets is collected. Criteria
+written in working notes or transcripts before data collection may be
+described as "pre-specified in dated working notes" and must not be labeled
+"pre-registered." Post-collection formalizations must self-identify as
+such. This rule is binding on all future amendments and on the remaining
+revision work (PPK2 analysis plan, response-letter statistics).
+
+**DOI debt record.** The v7.12 Zenodo DOI was not minted same-day; its
+Status line is updated with DOI 10.5281/zenodo.22907481. The one-day gap is
+recorded here and not concealed.
+
+**What is NOT changed by this amendment:** the investigation's data,
+methods, results, verdict (placement excluded; Branch B), or the
+confirmatory campaign's own pre-registration status. v7.12's substantive
+content stands; only the characterization of the branches is corrected.
