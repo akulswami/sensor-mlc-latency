@@ -14,7 +14,7 @@ The control results sharpen the practical lesson: **"stress" is not a single thi
 
 ## VI.C Multimodal distributions and decision cadence
 
-Two secondary findings carry safety-critical weight. First, the MLC pipelines are multimodal at idle (§V.B): the mlc/idle p95 of 1,781 µs is 2.6× its median, a factor that vanishes under a unimodal-Gaussian assumption. For a "worst latency observed with probability 1 − ε" specification, the upper mode, not the median, is the relevant quantity.
+Two secondary findings carry safety-critical weight. First, the MLC pipelines are multimodal at idle (§V.B): the mlc/idle p95 of 1,780 µs is 2.6× its median, a factor that vanishes under a unimodal-Gaussian assumption. For a "worst latency observed with probability 1 − ε" specification, the upper mode, not the median, is the relevant quantity.
 
 Second, for unsynchronized external stimuli, the observed 706.5 ms cadence (§V.C) can dominate full *stimulus-to-decision* latency at the system level. Because the MLC fires only on its internal clock boundary, an unsynchronized real-world stimulus waits a uniformly-distributed 0–706.5 ms (mean 353 ms) before the silicon can respond. This is invisible on the D0-to-D1 wire-level axis we measured but is a structural floor; the 1–2 ms wire-level differences this paper characterizes are second-order against it.
 

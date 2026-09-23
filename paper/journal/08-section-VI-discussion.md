@@ -25,7 +25,7 @@ For safety-critical specification: if the deployed environment has bus contentio
 
 We do not present a confirmed mechanism. Candidate explanations include: (a) idle-state I²C bus arbitration on the Jetson's `i2c-tegra194` driver having multiple equilibrium timings between conflicting wake-up paths, (b) the gpiod write path through `/dev/gpiochip0` traversing different kernel call sequences depending on whether the underlying chardev poll mechanism is in steady-state or recently-armed, or (c) some interaction between the MLC's 706.5 ms internal cadence (§V.C) and the kernel's microsecond-resolution interrupt-arrival timing. Distinguishing these requires ftrace instrumentation of the I²C driver and the gpiochip event flow at the kernel level, which lies outside the scope of this wire-level study.
 
-The methodological contribution is the observation itself: per-trial wire-level latency measurements reveal substructure that median/mean reporting cannot. For safety-critical specification of "what is the worst latency we will observe with probability 1 − ε," the bimodal upper mode is the relevant quantity, not the median. The p95 latency for mlc/idle (1,781 µs) is 2.6× the median (681.5 µs), a factor that disappears in a unimodal-Gaussian assumption.
+The methodological contribution is the observation itself: per-trial wire-level latency measurements reveal substructure that median/mean reporting cannot. For safety-critical specification of "what is the worst latency we will observe with probability 1 − ε," the bimodal upper mode is the relevant quantity, not the median. The p95 latency for mlc/idle (1,780 µs) is 2.6× the median (681.5 µs), a factor that disappears in a unimodal-Gaussian assumption.
 
 ## VI.D The MLC's intrinsic decision cadence
 

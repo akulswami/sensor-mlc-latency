@@ -87,14 +87,14 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
     \toprule
     Pipeline & Condition & $n$ & Median ($\mu$s) & IQR ($\mu$s, p25--p75) \\
     \midrule
-    host       & idle      & 536 & 321.7  & 319.7--326.4   \\
+    host       & idle      & 536 & 321.7  & 319.7--326.3   \\
     host       & i2c-cont. & 529 & 574.5  & 547.8--599.0   \\
-    host       & stress    & 532 & 345.0  & 342.0--349.0   \\
+    host       & stress    & 532 & 345.0  & 342.0--348.9   \\
     mlc        & idle      & 525 & 681.5  & 505.4--1086.8  \\
-    mlc        & i2c-cont. & 532 & 1325.4 & 1283.8--1371.5 \\
-    mlc        & stress    & 527 & 546.1  & 535.8--557.0   \\
+    mlc        & i2c-cont. & 532 & 1325.4 & 1283.7--1370.8 \\
+    mlc        & stress    & 527 & 546.1  & 535.9--557.0   \\
     mlc-binary & idle      & 531 & 231.9  & 61.8--246.2    \\
-    mlc-binary & i2c-cont. & 527 & 49.4   & 46.9--53.2     \\
+    mlc-binary & i2c-cont. & 527 & 49.4   & 46.9--53.1     \\
     mlc-binary & stress    & 531 & 70.2   & 66.9--73.0     \\
     \bottomrule
   \end{tabular}
@@ -124,7 +124,7 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 \subsection{Multimodal latency distributions}
 
-\textbf{Fig. 1} reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 $\mu$s exceeds median 681.5 $\mu$s, p95 1,780.7 $\mu$s), and mlc-binary/idle shows three modes near 60, 240, and 470 $\mu$s. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
+\textbf{Fig. 1} reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 $\mu$s exceeds median 681.5 $\mu$s, p95 1,779.7 $\mu$s), and mlc-binary/idle shows three modes near 60, 240, and 470 $\mu$s. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
 
 \subsection{MLC decision cadence}
 
@@ -151,7 +151,7 @@ The control results sharpen the practical lesson: \textbf{``stress'' is not a si
 
 \subsection{Multimodal distributions and decision cadence}
 
-Two secondary findings carry safety-critical weight. First, the MLC pipelines are multimodal at idle (Section~V.B): the mlc/idle p95 of 1,781 $\mu$s is 2.6$\times$ its median, a factor that vanishes under a unimodal-Gaussian assumption. For a ``worst latency observed with probability 1 $-$ $\varepsilon$'' specification, the upper mode, not the median, is the relevant quantity.
+Two secondary findings carry safety-critical weight. First, the MLC pipelines are multimodal at idle (Section~V.B): the mlc/idle p95 of 1,780 $\mu$s is 2.6$\times$ its median, a factor that vanishes under a unimodal-Gaussian assumption. For a ``worst latency observed with probability 1 $-$ $\varepsilon$'' specification, the upper mode, not the median, is the relevant quantity.
 
 Second, for unsynchronized external stimuli, the observed 706.5 ms cadence (Section~V.C) can dominate full \emph{stimulus-to-decision} latency at the system level. Because the MLC fires only on its internal clock boundary, an unsynchronized real-world stimulus waits a uniformly-distributed 0--706.5 ms (mean 353 ms) before the silicon can respond. This is invisible on the D0-to-D1 wire-level axis we measured but is a structural floor; the 1--2 ms wire-level differences this paper characterizes are second-order against it.
 
