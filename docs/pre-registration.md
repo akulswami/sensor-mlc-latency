@@ -2666,7 +2666,7 @@ Pooled across b001, b002, b003, and ctrl001: 232/232 trials < 150 µs. Against t
 
 ## Amendment v7.13 (2026-09-22): Correction to v7.12 — characterization of the affinity-analysis branches
 
-**Status:** Pre-registered. Zenodo DOI: [pending — mint same-day per v5 Change 4].
+**Status:** Pre-registered. Zenodo DOI: 10.5281/zenodo.22907600 (https://doi.org/10.5281/zenodo.22907600). Satisfied same-day per v5 Change 4..
 
 **Change.** v7.12 describes its two outcome-interpretation branches as
 "Pre-registered branches (both written before results were collected)."
