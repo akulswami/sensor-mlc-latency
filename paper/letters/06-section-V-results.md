@@ -22,7 +22,7 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 ## V.C MLC decision cadence
 
-Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T = 706.5 ms, approximately one-quarter of the MLC's 75-sample, 26 Hz window period (0.721 s expected). The quantization is consistent with the MLC updating only on its internal window-cadence clock, a behavior we did not find documented in ST application notes [2].
+Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T = 706.5 ms, approximately the MLC's 75-sample, 104 Hz window period (0.721 s expected). The quantization is consistent with the MLC updating only on its internal window-cadence clock.
 
 ## V.D Exclusion rates
 
