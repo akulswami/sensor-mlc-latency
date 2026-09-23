@@ -21,16 +21,20 @@ request; nothing was re-derived, re-verified, or newly introduced.
 ## 2. Energy paragraph — CI-first framing
 
 > Jetson platform power (VDD_CPU_GPU_CV, INA3221) differs between host
-> and MLC pipelines by +31.1 mW [27.8, 34.4] at idle and +7.3 mW under
-> I²C contention. Under CPU stress, the 95% CIs span ±30 mW despite p ≈
-> 1×10⁻²⁷; at this magnitude the two pipelines are statistically
-> distinguishable but practically indistinguishable in platform power
-> draw. VDD_IN replicates the idle effect at +37.3 mW. These are
-> whole-platform power measurements, not an isolated
-> host-classifier-versus-MLC energy comparison; the sensor's own power
-> draw is not separately instrumented.
+> and MLC pipelines by +31.1 mW [27.8, 34.4] at idle (p ≈ 8.4×10⁻⁹²) and
+> +7.3 mW under I²C contention (p ≈ 5.5×10⁻⁸). This comparison was added
+> post-hoc in response to review; per the pre-registration's standing
+> rule (v7.13), it is labeled as such rather than presented as part of
+> the original confirmatory design. Under CPU stress, the 95% CI spans
+> [−28.8, 14.6] mW and includes zero despite p ≈ 1.4×10⁻⁸ — expected at
+> this sample size, where MWU is sensitive to distributional differences
+> beyond central tendency; the CI, not the p-value, is the practically
+> relevant statistic here. VDD_IN replicates the idle effect at +37.3 mW
+> [33.2, 41.4]. These are whole-platform measurements, not an isolated
+> host-classifier-vs-MLC comparison — the sensor's own power draw is not
+> separately instrumented.
 
-**Word count: 81**
+**Word count: 133**
 
 ---
 
