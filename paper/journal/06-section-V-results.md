@@ -30,7 +30,7 @@ This finding is reported as exploratory rather than confirmatory. The mechanisti
 
 **Fig. 2** shows the histogram of inter-trial D0 (INT1) gap times pooled across all MLC and MLC-binary blocks (n = 3,086 gaps, after clipping 44 gaps above 8,831 ms for visibility). The distribution exhibits sharp peaks at integer multiples of T = 706.5 ms, with empty bins between peaks. The dominant peaks at 5×T (3,532 ms; ~1,100 gaps) and 9×T (6,358 ms; ~1,350 gaps) reflect the stimulus protocol's 5 s cycle (one cycle ≈ 5×T; two cycles ≈ 9×T). Secondary peaks at 6×T, 8×T, and 10×T capture the natural cycle-to-cycle variation in the orchestrator's wall-clock pacing.
 
-T = 706.5 ms is one-quarter of the MLC's 75-sample, 26 Hz window period (2.885 s / 4 = 0.721 s; the empirical peak sits at 0.7065 s). This quantization is intrinsic to the MLC silicon: regardless of when the host or stimulus expects a decision, the MLC's classification updates only on its internal 706.5 ms clock. We are not aware of this cadence being documented in ST application notes [REF-AN5259] or in the LSM6DSOX datasheet.
+T = 706.5 ms is the MLC's 75-sample, 104 Hz window period (75 / 104 = 0.721 s; the empirical peak sits at 0.7065 s; see §III.A on the 104 Hz vs. gyroscope_odr distinction). This quantization is intrinsic to the MLC silicon: regardless of when the host or stimulus expects a decision, the MLC's classification updates only on its internal 706.5 ms clock.
 
 ## V.D Trial-level stability and exclusion rates
 

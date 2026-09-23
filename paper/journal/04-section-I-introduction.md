@@ -18,5 +18,5 @@ In this work, we measure wire-level stimulus-to-decision latency for three pipel
 The contributions are:
 1. The first pre-registered wire-level latency characterization of the LSM6DSOX MLC versus host-side inference on a representative edge platform, spanning 4,770 included trials of 4,860 candidates (98.15% inclusion) across nine pipeline×condition cells.
 2. Empirical identification of the I²C read-protocol overhead as the dominant latency contributor — a finding that generalizes to any platform using bank-switched register access for on-sensor ML output.
-3. Documentation of the MLC's 706.5 ms intrinsic decision cadence (one quarter of the 75-sample × 26 Hz window), previously unreported in vendor literature.
+3. Documentation of the MLC's 706.5 ms intrinsic decision cadence (the 75-sample × 104 Hz window period), previously unreported in vendor literature.
 4. A methodology contribution: pre-registration with externally-timestamped Zenodo DOIs as an audit-defensible framework for sensor-measurement claims, with implications for verification of safety-critical edge ML deployments where wire-level latency is a system-safety property.
