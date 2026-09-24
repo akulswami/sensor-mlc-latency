@@ -1,6 +1,6 @@
 # §V. Results
 
-The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 300 s; 4,770 (98.15%) satisfied the pre-registered inclusion criteria. All blocks achieved 100% jetson_clocks effectiveness under MAXN_SUPER_JC. Per-cell latency distributions appear in **Fig. 1**; summary statistics in **Table I**.
+The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 300 s; 4,770 (98.15%) satisfied the pre-registered inclusion criteria. All blocks achieved 100% jetson_clocks effectiveness under MAXN_SUPER_JC. Per-cell latency distributions appear in **FIGLATENCYREF**; summary statistics in **TABLATENCYREF**.
 
 ## V.A Confirmatory tests
 
@@ -18,7 +18,7 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 ## V.B Multimodal latency distributions
 
-**Fig. 1** reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 µs exceeds median 681.5 µs, p95 1,779.7 µs), and mlc-binary/idle shows three modes near 60, 240, and 470 µs. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
+**FIGLATENCYREF** reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 µs exceeds median 681.5 µs, p95 1,779.7 µs), and mlc-binary/idle shows three modes near 60, 240, and 470 µs. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
 
 ## V.C MLC decision cadence
 

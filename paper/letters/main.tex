@@ -11,6 +11,13 @@
 
 \graphicspath{{../figures/}}
 
+% IEEE_lsens.cls defines \thetable as Arabic (symmetric with \thefigure,
+% no documented rationale) -- standard IEEE house style numbers tables
+% with Roman numerals ("TABLE I") while figures stay Arabic ("Fig. 1").
+% Overridden here rather than in the class file to keep the upstream
+% template file untouched.
+\renewcommand{\thetable}{\Roman{table}}
+
 \begin{document}
 
 \markboth{IEEE Sensors Letters}{Swami and Sonawane: Wire-Level Interrupt-to-Decision Latency of On-Sensor MLC versus Host Inference}
@@ -50,7 +57,7 @@ Inertial measurement unit, machine learning core, edge inference, latency measur
 
 \bibitem{ref3} M.~Razmi and I.~Shojaei, ``Event-driven on-sensor locomotion mode recognition for exoskeleton control,'' arXiv:2602.21418, Feb.\ 2026.
 
-\bibitem{ref4} A.~Swami, ``Pre-registration chain for the sensor-mlc-latency study (v6.1--v7.11),'' Zenodo, 2026, doi:10.5281/zenodo.20437893.
+\bibitem{ref4} A.~Swami, ``Pre-registration chain for the sensor-mlc-latency study (v6.1--v7.13),'' Zenodo, 2026, doi:10.5281/zenodo.22907600.
 
 \bibitem{ref5} H.~B.~Mann and D.~R.~Whitney, ``On a test of stochastic ordering of two random variables,'' \emph{Ann. Math. Statist.}, vol.~18, pp.~50--60, 1947.
 

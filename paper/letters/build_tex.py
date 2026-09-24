@@ -144,13 +144,23 @@ if "FIGSETUPREF" in body:
     body = body.replace("FIGSETUPREF", r"The full measurement setup is shown in Fig.~\ref{fig:setup}.", 1)
 else:
     print("WARN: FIGSETUPREF marker not found")
-_ref_sentence = r"summary statistics in \textbf{Table I}."
+_ref_sentence = r"summary statistics in \textbf{TABLATENCYREF}."
 if _ref_sentence in body:
     body = body.replace(_ref_sentence, _ref_sentence + "\n\n" + _fig + "\n\n" + _tab + "\n\n" + _fig2, 1)
 else:
     # fallback: append at end if anchor sentence not found
     body = body + "\n\n" + _fig + "\n\n" + _tab + "\n\n" + _fig2
     print("WARN: V-ref sentence not found; floats appended at end")
+
+# Hardcoded Fig./Table mentions -> \ref{} (labels defined in the float .tex
+# files). Substituted as plain-text markers rather than literal \ref{...} in
+# the .md source, because md_inline_to_tex escapes backslashes before this
+# point would run (same mechanism as FIGSETUPREF above).
+n_fig_refs = body.count("FIGLATENCYREF")
+n_tab_refs = body.count("TABLATENCYREF")
+body = body.replace("FIGLATENCYREF", r"Fig.~\ref{fig:latency}")
+body = body.replace("TABLATENCYREF", r"Table~\ref{tab:latency}")
+print(f"[refs] Substituted {n_fig_refs} FIGLATENCYREF and {n_tab_refs} TABLATENCYREF marker(s)")
 
 
 # Abstract (strip headers/annotations, take the prose paragraph)
