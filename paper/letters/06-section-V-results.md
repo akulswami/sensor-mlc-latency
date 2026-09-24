@@ -12,7 +12,7 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 **H5' (CPU stress null for host latency): SUPPORTED.** Host median rises only from 321.7 µs (idle) to 345.0 µs (stress); a TOST against the pre-registered ±30 µs margin gives +23.3 µs, 90% CI [+22.7, +23.7] ⊂ [−30, +30]. Equivalence is declared; a 208 Hz polling loop does not contend with stress-ng for CPU time.
 
-**H6' (CPU stress positive for energy): SUPPORTED.** Mean VDD_IN (INA3221 via tegrastats) rises from 5,206 mW (idle) to 8,626 mW (stress): +3,420 mW [+3,410, +3,429], exceeding the pre-registered +1,000 mW threshold threefold. The power axis distinguishes CPU stress unambiguously where the latency axis (H5') cannot.
+**H6' (CPU stress positive for energy): SUPPORTED.** Mean VDD_IN (INA3221 via tegrastats) rises from 5,206 mW (idle) to 8,626 mW (stress): +3,420 mW [+3,410, +3,429], exceeding the pre-registered +1,000 mW threshold threefold; H6' is a manipulation check on the CPU-stress condition, not a host-versus-MLC energy comparison (see supplementary S2 for that post-hoc comparison). The power axis distinguishes CPU stress unambiguously where the latency axis (H5') cannot.
 
 **H7' (MLC stability degrades under contention): FALSIFIED, direction opposite**. The fraction of stimulus windows with exactly one D1 rising edge is 97.22% (525/540) at idle versus 98.89% (534/540) under contention, a +1.67 percentage-point *increase* rather than the predicted decrease. Fisher's exact test in the pre-registered direction gives p = 0.9874 (two-sided p = 0.0755). H7' is formally falsified in pre-registration v7.10 [4]. I²C contention slows the MLC pipeline (H2', H3') but does not degrade the silicon's classifier reliability.
 
@@ -26,4 +26,4 @@ Inter-trial D0 (INT1) gaps (n = 3,086) cluster sharply at integer multiples of T
 
 ## V.D Exclusion rates
 
-No cell exceeded the pre-registered 10% exclusion ceiling (highest: mlc/idle, 2.78%). The dominant exclusion category (68 of 90 trials) was multiple D1 edges per window, attributable to the 706.5 ms cadence interacting with stimulus-window boundaries. Inclusion (n=532, Table I) and the H7' stability count (n=534, §V.A) use related but distinct single-edge criteria: inclusion additionally requires an unambiguous single D0 rising edge before the single D1 edge (§III.D), which the H7' criterion does not.
+No cell exceeded the pre-registered 10% exclusion ceiling (highest: mlc/idle, 2.78%). The dominant exclusion category (68 of 90 trials) was multiple D1 edges per window, attributable to the 706.5 ms cadence interacting with stimulus-window boundaries. In the MLC/I²C-contention cell, inclusion (n=532, Table I) and the H7' stability count (n=534, §V.A) use related but distinct single-edge criteria: inclusion additionally requires an unambiguous single D0 rising edge before the single D1 edge (§III.D), which the H7' criterion does not.
