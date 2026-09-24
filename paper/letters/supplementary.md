@@ -2,7 +2,7 @@
 
 *Wire-Level Interrupt-to-Decision Latency of On-Sensor MLC versus Host Inference on the NVIDIA Jetson Orin Nano: A Pre-Registered Measurement Study*
 
-Not part of the 4-page Letters build (`build_tex.py` does not read this file). Referenced from the main text by short pointer sentences in §V.B and §VI.B.
+Not part of the 4-page Letters build (`build_tex.py` does not read this file). S2 is referenced from the main text by a short pointer sentence in §V.A. S1 and S3 are provided here without an in-text manuscript pointer, per the page-budget decision made during this revision.
 
 ---
 
@@ -30,7 +30,7 @@ Latency = t(D1 rising) − t(D0 rising). Each cell aggregates 9 blocks of 300 s.
 
 ---
 
-## S2. Host vs. MLC platform power (post-hoc; referenced from §VI.B)
+## S2. Host vs. MLC platform power (post-hoc; referenced from §V.A)
 
 Jetson platform power (VDD_CPU_GPU_CV, INA3221) differs between host and MLC pipelines by +31.1 mW [27.8, 34.4] at idle (p ≈ 8.4×10⁻⁹²) and +7.3 mW under I²C contention (p ≈ 5.5×10⁻⁸). This comparison was added post-hoc in response to review; per the pre-registration's standing rule (v7.13), it is labeled as such rather than presented as part of the original confirmatory design. Under CPU stress, the 95% CI spans [−28.8, 14.6] mW and includes zero despite p ≈ 1.4×10⁻⁸ — expected at this sample size, where MWU is sensitive to distributional differences beyond central tendency; the CI, not the p-value, is the practically relevant statistic here. VDD_IN replicates the idle effect at +37.3 mW [33.2, 41.4]. These are whole-platform measurements, not an isolated host-classifier-vs-MLC comparison — the sensor's own power draw is not separately instrumented.
 
