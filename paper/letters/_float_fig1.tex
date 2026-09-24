@@ -1,6 +1,6 @@
 \begin{figure}[!t]
   \centering
-  \includegraphics[width=\columnwidth]{figure_1_latency_boxplot.png}
-  \caption{Per-trial wire-level latency by pipeline and condition. The mlc-binary panel (zero I\textsuperscript{2}C transactions on the decision path) isolates the kernel/gpiod latency floor; note the per-panel $y$-axis scaling. Box = IQR (Q1--Q3); whiskers = 1.5$\times$IQR; $\triangle$ = mean; $\bullet$ = outlier; y-axes are capped per panel, with outliers above each cap noted in-panel.}
+  \includegraphics[width=\columnwidth]{figure_1_latency_boxplot_logscale.png}
+  \caption{Per-trial wire-level latency by pipeline and condition, on one shared log-scale $y$-axis across all three panels so box position is directly comparable across pipelines. The mlc-binary panel (zero I\textsuperscript{2}C transactions on the decision path) isolates the kernel/gpiod latency floor. Box = IQR (Q1--Q3); whiskers = 1.5$\times$IQR; $\triangle$ = mean; $\bullet$ = outlier; every point is shown in-frame, with no per-panel capping.}
   \label{fig:latency}
 \end{figure}
