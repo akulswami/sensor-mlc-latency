@@ -14,6 +14,8 @@ We thank both reviewers for a thorough and technically demanding review. Every s
 
 **Response:** This concern is resolved directly, without a re-run. During this revision we identified that the MLC's actual configured output data rate is 104 Hz, not 26 Hz — the 26 Hz figure in the original submission was drawn from the `gyroscope_odr` field of the ST MEMS Studio export, a different register than the one governing the MLC's accelerometer-driven decision window. With the corrected rate, host window and MLC window are both 721.2 ms: `parity_core`'s `pc_step` implements a 2:1 decimation of the host sample stream, equalizing the two windows to a common period. The data-rate mismatch the reviewer identified does not exist in the actual experimental configuration; it was a reporting error in the original submission, now corrected.
 
+This is verifiable in the public record, not a post-hoc assertion: (i) the 2:1 decimation in pc_step was committed 2026-05-21 (a5a0c892), five days before confirmatory data collection began and sixteen days before the original submission — it was not introduced in response to review; (ii) the MEMS Studio export (mlc_settings.json, 2026-05-22) records accelerometer_odr: 208 Hz, gyroscope_odr: 26 Hz, mlc_odr: 104 Hz side by side — the field we misread is visible in the artifact; (iii) independently, the wire-level INT1 pulse width on the MLC pipelines is 9,007.9 µs median (IQR 9,006.4–9,009.1 µs; n = 1,669 pulses across all 27 confirmatory mlc blocks) — consistent with the 104 Hz configuration and 4.3× away from the 38.5 ms a 26 Hz configuration would produce. AN5259 caps MLC ODR at half the accelerometer ODR; with CTRL1_XL=0x50 (208 Hz), 104 Hz is the maximum valid configuration, consistent with the corrected figure.
+
 **Manuscript changes:** §III.A (rate correction, with provenance note on the `gyroscope_odr` field), §III.B (decimation sentence), §V.C and Introduction contribution 3 (cadence figure corrected from the erroneous 26 Hz derivation to the verified 104 Hz window period).
 
 ---
@@ -24,12 +26,11 @@ We thank both reviewers for a thorough and technically demanding review. Every s
 
 **Response:** We conducted a targeted follow-up investigation testing process-affinity pinning and IRQ-routing as candidate causes. Per our pre-registration's standing rule (v7.13), analysis branches are timestamped in our Zenodo chain either before the data they interpret or explicitly labeled as post-hoc; here, the investigation's data were collected 2026-09-21, and the corresponding amendments (v7.12, DOI 10.5281/zenodo.22907481; correction v7.13, DOI 10.5281/zenodo.22907600) were formalized into the chain immediately afterward, on 2026-09-22. We label this analysis branch as post-hoc rather than prospectively pre-registered, consistent with our own disclosure standard.
 
-- **Process affinity:** 232/232 trials with the process pinned to a fixed CPU core fell under 150 µs, versus 70.1% ≥150 µs in the original (unpinned) campaign — a highly significant difference in the *opposite* direction from what an affinity-based explanation would predict (Mann-Whitney p ≈ 1.8×10⁻⁷⁵, Hodges-Lehmann shift −184.4 µs). A same-session unpinned control block showed no difference from the pinned blocks (p = 0.673), ruling out session-to-session drift as a confound.
-- **IRQ routing:** Confirmed via direct kernel interrogation that Tegra's chained GPIO IRQs are not steerable (`smp_affinity` writes return EIO); INT1 is fixed to CPU0 regardless of process placement. This candidate is excluded on architectural grounds, not just empirically.
+232/232 trials with the process pinned to a fixed CPU core fell under 150 µs, versus 70.1% ≥150 µs in the original (unpinned) campaign (Mann-Whitney p ≈ 1.8×10⁻⁷⁵, Hodges-Lehmann shift −184.4 µs). A same-session unpinned control block showed no difference from the pinned blocks (p = 0.673), ruling out session-to-session drift as a confound. IRQ-routing is excluded on architectural grounds (Tegra's chained GPIO IRQs are not steerable; INT1 is fixed to CPU0 regardless of process placement). Process affinity is not supported by the follow-up data; the anomaly's non-reproduction across sessions — in both the pinned and same-session unpinned control blocks — means no software-side candidate can be excluded from these data alone.
 
 We report this honestly as a **systematic negative result**, not a resolved anomaly: the root cause of the idle-session multimodality remains unidentified. We do not believe this affects the paper's primary conclusions, which rest on the unpinned confirmatory campaign data throughout, and we have added the multimodal-distribution caveat and candidate-mechanism discussion (bus arbitration, gpiod chardev poll state, MLC-cadence interaction) as a labeled exploratory finding.
 
-**Manuscript changes:** §V.B (multimodal distribution, explicitly labeled exploratory). Full candidate-mechanism discussion, including the two now-excluded hypotheses and the three remaining untested candidates, is provided in the supplementary material (S3) referenced from this letter, since it did not fit within the 4-page limit alongside this revision's other required additions.
+**Manuscript changes:** §V.B (multimodal distribution, explicitly labeled exploratory). Full candidate-mechanism discussion, including the IRQ-routing hypothesis (excluded on architectural grounds), process affinity (not supported by the data), and the three remaining untested candidates, is provided in the supplementary material (S3) referenced from this letter, since it did not fit within the 4-page limit alongside this revision's other required additions.
 
 ---
 
@@ -65,13 +66,21 @@ The underlying evidence this figure illustrates remains fully present in the man
 
 **Response:** We evaluated host-vs-MLC energy at the Jetson platform-power level (INA3221, VDD_CPU_GPU_CV and VDD_IN rails):
 
-> Jetson platform power (VDD_CPU_GPU_CV) differs between host and MLC pipelines by +31.1 mW [27.8, 34.4] at idle (p ≈ 8.4×10⁻⁹²) and +7.3 mW under I²C contention (p ≈ 5.5×10⁻⁸). This comparison was added post-hoc in response to review; per the pre-registration's standing rule (v7.13), it is labeled as such rather than presented as part of the original confirmatory design. Under CPU stress, the 95% CI spans [−28.8, 14.6] mW and includes zero despite p ≈ 1.4×10⁻⁸ — expected at this sample size, where the Mann-Whitney U test is sensitive to distributional differences beyond central tendency; the confidence interval, not the p-value, is the practically relevant statistic here. VDD_IN replicates the idle effect at +37.3 mW [33.2, 41.4].
+> Jetson platform power (VDD_CPU_GPU_CV) differs between host and MLC pipelines: +31.1 mW [27.8, 34.4] at idle, +7.3 mW [3.9, 10.7] under I²C contention, and −28.8 to +14.6 mW under CPU stress (95% CI includes zero). This comparison was added post-hoc in response to review; per the pre-registration's standing rule (v7.13), it is labeled as such rather than presented as part of the original confirmatory design. The idle and i2c-contention confidence intervals exclude zero (Mann-Whitney p ≈ 8.4×10⁻⁹² and p ≈ 5.5×10⁻⁸ respectively); the stress condition's does not, despite p ≈ 1.4×10⁻⁸ — expected at this sample size, where the Mann-Whitney U test is sensitive to distributional differences beyond central tendency, which is why the confidence interval, not the p-value, is the practically relevant statistic throughout. VDD_IN replicates the idle effect at +37.3 mW [33.2, 41.4]. On the VDD_IN rail, the idle effect (+37.3 mW) is approximately 0.7% of the 5,206 mW idle platform draw (VDD_IN baseline, H6′) — on this platform, the host pipeline's latency advantage costs comparatively little on the energy axis; the open question is whether this holds for MCU-class hosts, which we did not test.
 
 These are whole-platform power measurements, not an isolated host-classifier-vs-MLC comparison — the sensor's own current draw is not separately instrumented, and we did not repeat measurements on a representative MCU-class host (e.g., STM32); both are natural directions for follow-on work rather than achievable within this revision's window. We did not pursue direct sensor-level current measurement (e.g., via a Nordic PPK2) within the revision window; the platform-level comparison above directly answers the reviewer's core concern that no host-vs-MLC energy comparison previously existed.
 
-The full numbers, including all three conditions and both power rails, are provided in the project's supplementary material (S2), referenced from the manuscript's linked code/data repository, since the full comparison did not fit within the 4-page limit as in-text prose alongside this revision's other required additions.
+The full numbers, including all three conditions and both power rails, are provided in the supplementary material uploaded with this revision (S2), since the full comparison did not fit within the 4-page limit as in-text prose alongside this revision's other required additions.
 
 **Manuscript changes:** None in-text beyond what is already noted (H6′ remains the CPU-stress manipulation check, unchanged and now explicitly distinguished from this comparison — see Reviewer 2, Point 5, below).
+
+---
+
+### Additional points from the Key Weaknesses summary
+
+**Dominant-axis scoping.** We agree the original used "dominant" on two axes. The revision scopes it: on the wire-level D0-to-D1 axis, the read protocol dominates (§VI.A); on the full stimulus-to-decision axis, the 706.5 ms cadence is the structural floor and wire-level differences are second-order (§VI.C). Both statements now appear with their axis attached.
+
+**Trigger semantics.** Disclosed in §III.B: the host pipeline's D0 (INT1/DRDY) fires on every accelerometer sample; the sliding window is maintained continuously via an O(1)-per-sample circular buffer, amortized across all preceding edges. On the specific edge that completes the 75-sample window, the measured D0-to-D1 interval additionally contains feature computation (two full passes over the window plus a peak-to-peak scan), decision-tree evaluation, a binary-state comparison, and the GPIO write — real per-decision compute, not the ~721 ms window-accumulation time itself, which is not part of the measured interval. This is asymmetric with the MLC pipelines, whose D0 is itself the decision-ready signal (§III.B): their on-chip classification is complete before D0 fires and lies entirely outside the measured D0-to-D1 interval, while the host's does not.
 
 ---
 
@@ -91,9 +100,9 @@ The full numbers, including all three conditions and both power rails, are provi
 
 > *"Report p95, p99 and maximum latency for every cell, not only medians/IQRs. This is particularly important given the multimodal distributions."*
 
-**Response:** A full percentile table (n, median, p25, p75, p95, p99, max, and mean for all nine pipeline×condition cells) is provided in the project's supplementary material (S1), computed with a single canonical method (linear interpolation, the numpy default) applied consistently throughout. During this revision we identified and corrected an internal inconsistency: the originally submitted Table I used a different interpolation convention (nearest-rank) than subsequent analysis used elsewhere, producing small discrepancies in several p25/p75/p95 values (on the order of 0.1–2 µs). This has been corrected throughout the manuscript for internal consistency; Table I's IQR values in the revised manuscript now match the canonical method used in the supplementary percentile table.
+**Response:** A full percentile table (n, median, p25–p75, p95, p99, max, and mean for all nine pipeline×condition cells) is provided in the project's supplementary material (S1), computed with a single canonical method (linear interpolation, the numpy default) applied consistently throughout. During this revision we identified and corrected an internal inconsistency: the originally submitted Table I used a different interpolation convention (nearest-rank) than subsequent analysis used elsewhere, producing small discrepancies in several p25/p75/p95 values (on the order of 0.1–2 µs). This has been corrected throughout the manuscript for internal consistency; Table I's IQR values in the revised manuscript now match the canonical method used in the supplementary percentile table.
 
-**Manuscript changes:** Table I values corrected for method consistency; full p95/p99/max table in supplementary material (S1), referenced from the manuscript's linked repository.
+**Manuscript changes:** Table I values corrected for method consistency; full p95/p99/max table provided in the supplementary material uploaded with this revision (S1).
 
 ---
 
@@ -128,7 +137,7 @@ The full numbers, including all three conditions and both power rails, are provi
 
 **Response:** This distinction is now explicit. H6′ remains, unchanged, the CPU-stress manipulation check: a single-condition comparison (stress vs. non-stress) confirming that the CPU-stress condition registers on the power axis, independent of pipeline. The newly added post-hoc comparison (see our response to Reviewer 1, Point 5, above) separately measures host-vs-MLC platform power across all three conditions — idle, contention, and stress — and is the comparison that directly answers this reviewer's request. Both are now clearly distinguished in the manuscript text and in the supplementary material.
 
-**Manuscript changes:** §V.A (H6′ description clarified as a manipulation check); energy-comparison distinction stated in the supplementary material (S2) referenced from the repository.
+**Manuscript changes:** §V.A (H6′ description clarified as a manipulation check); energy-comparison distinction provided in the supplementary material uploaded with this revision (S2).
 
 ---
 
@@ -144,6 +153,18 @@ The full numbers, including all three conditions and both power rails, are provi
 
 ---
 
+### Point 7 — Overhead decomposition
+
+**Response:** We can decompose two of the five requested components directly from wire-level data: mlc-binary isolates the kernel/gpiod floor (49.4 µs under contention), and mlc-minus-mlc-binary isolates the full I²C read path (476 µs uncontended, 1,276 µs contended) — the increase under contention (~800 µs) is attributable to bus-arbitration delay specifically, since Linux scheduling and GPIO-write cost are shared between mlc and mlc-binary and cancel in the subtraction. Individually separating I²C transaction time from bus-arbitration time, or confirming the silicon's own classification time, would require a direct SDA/SCL bus trace, which this study's instrumentation does not capture; this is a direction for follow-on work.
+
+---
+
+### Point 8 — General-statements audit
+
+**Response:** We audited abstract, introduction, results, and conclusion: the 2.1–2.3× figure appears only scoped to this platform and the D0-to-D1 configuration; the stress-condition 1.6× is reported separately (§VI.A); §VI.D states platform/protocol/ODR specificity explicitly.
+
+---
+
 ## Additional corrections made during this revision
 
 In the course of addressing the points above, we identified and corrected the following, none of which were raised directly by either reviewer:
@@ -152,8 +173,6 @@ In the course of addressing the points above, we identified and corrected the fo
 2. **Headline speedup scoping:** The original submission stated the 2.1–2.3× speedup held "under every tested condition." We found this did not hold under CPU stress (measured ratio 1.58–1.6×) and corrected the claim to be scoped accurately to idle and I²C-contention conditions, with the stress-condition result now stated and explained separately (§VI.A).
 3. **Percentile-computation method:** Corrected an internal inconsistency between the interpolation method used in the originally submitted Table I and the method used elsewhere in the analysis, as noted above (Reviewer 2, Point 2).
 
+4. **Hardware description:** The original submission identified the IMU breakout as the STEVAL-MKI197V1; the board used is an Adafruit LSM6DSOX breakout (PID 4438; onboard 3.3 V regulation, 10K I²C pull-ups). The sensor IC, I²C address, bus speed, and all electrical configuration are unchanged; no results are affected.
+
 We disclose these here in the interest of full transparency about all changes made between submissions, consistent with the pre-registration integrity standard the paper itself argues for.
-
----
-
-*[Draft for review — verify the figure embed path once placed in the repository, and confirm before submission whether ScholarOne's Step 6 supports a general supplementary-material upload distinct from this response file; if not, S1/S2/S3 content referenced above should be attached to this document directly rather than left as an external repository link.]*
