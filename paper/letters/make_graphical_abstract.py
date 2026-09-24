@@ -27,8 +27,9 @@ for i, s in enumerate(speedup):
 ax.set_ylabel("Median interrupt-to-decision\nlatency (\u00b5s)", fontsize=10)
 ax.set_xticks(x); ax.set_xticklabels(conditions, fontsize=10); ax.set_ylim(0, ymax)
 ax.legend(frameon=False, fontsize=9.5, loc="upper left")
-ax.set_title("Host inference is 2.1\u20132.3\u00d7 faster than the on-sensor MLC;\n"
-             "the I\u00b2C bank-switch read protocol, not classification, dominates",
+ax.set_title("On the LSM6DSOX (I\u00b2C, Jetson Orin Nano), host inference is\n"
+             "2.1\u20132.3\u00d7 faster than the on-sensor MLC; the I\u00b2C bank-switch\n"
+             "read protocol, not classification, dominates",
              fontsize=10, fontweight="bold", pad=10)
 ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
 ax.tick_params(axis="both", labelsize=9)
