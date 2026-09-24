@@ -30,7 +30,7 @@ from saleae import automation
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_BLOCKS_DIR = REPO_ROOT / "data" / "training" / "latency-experiment"
-DIGITAL_CHANNELS = [0, 1, 2]  # D0 = INT1, D1 = decision GPIO, D2 = PCA9685 PWM
+DIGITAL_CHANNELS = [0, 1, 2, 3, 4]  # widened 2026-09-24: +SDA(ch3)/SCL(ch4) for on-wire evidence captures  # D0 = INT1, D1 = decision GPIO, D2 = PCA9685 PWM
 
 
 def convert_block(manager, block_dir):
