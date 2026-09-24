@@ -267,7 +267,11 @@ def run_block(args) -> int:
         device_config = automation.LogicDeviceConfiguration(
             enabled_digital_channels=SALEAE_DIGITAL_CHANNELS,
             digital_sample_rate=SALEAE_DIGITAL_SAMPLE_RATE,
-            digital_threshold_volts=1.8,
+            digital_threshold_volts=3.3,  # 3.3V open-drain I2C: 1.8V threshold let SCL crosstalk phantom-toggle SDA (2026-09-24)
+            glitch_filters=[
+                automation.GlitchFilterEntry(channel_index=3, pulse_width_seconds=200e-9),
+                automation.GlitchFilterEntry(channel_index=4, pulse_width_seconds=200e-9),
+            ],
         )
         capture_config = automation.CaptureConfiguration(
             capture_mode=automation.TimedCaptureMode(
