@@ -55,7 +55,7 @@ The underlying evidence this figure illustrates remains fully present in the man
 
 **Response:** These are two different, correctly-applied criteria, not an error. n = 532 is the **latency-included** count (540 candidate trials minus 8 exclusions: 5 multiple-D1-edge trials, 2 multiple-D0-before-D1 trials, 1 no-D1 trial), used throughout Table I and the confirmatory latency statistics. n = 534 (540 minus 6 exclusions) is the **single-D1-rising-edge stability count**, which is the specific criterion H7′ tests. The two counts differ because they answer different questions from an overlapping but non-identical set of exclusion categories. Both criteria and both resulting counts are now stated explicitly in the manuscript.
 
-**Manuscript changes:** §III.D and §V.D now state both the inclusion criterion and the stability criterion explicitly, with the exclusion breakdown, resolving the ambiguity directly.
+**Manuscript changes:** §III.D and §V.D now state both criteria explicitly and distinguish them (§III.D's inclusion criterion additionally requires an unambiguous single D0 edge, which the H7' stability criterion does not); the specific per-category exclusion breakdown given above remains stated only in this response letter, not in the manuscript text itself.
 
 ---
 
