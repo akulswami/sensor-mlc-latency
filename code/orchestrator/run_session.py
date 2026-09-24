@@ -60,7 +60,7 @@ DEFAULT_ODR_HZ = 208
 #   D0 = sensor INT1 (Jetson Pin 15, gpiochip0 line 85)
 #   D1 = decision-edge GPIO (Jetson Pin 11, gpiochip0 line 112)
 #   D2 = PCA9685 channel 0 PWM (servo command / training-label ground truth)
-SALEAE_DIGITAL_CHANNELS = [0, 1, 2]  # D0=INT1 (Pin 15), D1=decision GPIO (Pin 11), D2=PCA9685 PWM (per docs/pin-assignment.md, v7.1 correction)
+SALEAE_DIGITAL_CHANNELS = [0, 1, 2, 3, 4]  # D0=INT1 (Pin 15), D1=decision GPIO (Pin 11), D2=PCA9685 PWM; ch3=SDA, ch4=SCL added 2026-09-24 for on-wire protocol evidence capture
 SALEAE_ANALOG_CHANNELS = []
 SALEAE_DIGITAL_SAMPLE_RATE = 50_000_000  # 50 MS/s per pre-reg §6.1 (raised from 12.5 MS/s in v7 amendment 2026-05-24)
 
