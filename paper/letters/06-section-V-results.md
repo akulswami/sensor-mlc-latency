@@ -18,7 +18,7 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 ## V.B Multimodal latency distributions
 
-**FIGLATENCYREF** reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 µs exceeds median 681.5 µs, p95 1,779.7 µs), and mlc-binary/idle shows three modes near 60, 240, and 470 µs. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
+**FIGLATENCYREF** reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 µs exceeds median 681.5 µs, p95 1,779.7 µs), and mlc-binary/idle shows three modes near 60, 240, and 470 µs. The mlc-binary/i2c-contention distribution has a hidden second mode: median latency is 49.4 µs, but p95 reaches 246.7 µs, indicating a secondary high-latency population not captured by the median alone. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
 
 ## V.C MLC decision cadence
 

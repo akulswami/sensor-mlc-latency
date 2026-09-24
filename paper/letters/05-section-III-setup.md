@@ -14,9 +14,13 @@ Three pipelines are compared end-to-end, sharing the same I²C arbitration, gpio
 
 **(a) host** (host_pipeline_parity): polls the accelerometer at 208 Hz, assembles a 75-sample window, and applies a decision-tree classifier (variance of accelerometer L2-norm against a calibrated threshold), toggling D1 on every output state change.
 
+Host window and MLC window are both 721.2 ms: parity_core's pc_step implements a 2:1 decimation of the host sample stream, equalizing the two windows to a common period.
+
 **(b) mlc** (latency_test_mlc_w75): on each INT1 edge, performs the three I²C transactions of the bank-switch read mandated by the LSM6DSOX register architecture [2] (write FUNC_CFG_ACCESS = 0x80 to enter the embedded-function bank, read MLC0_SRC = 0x70, write FUNC_CFG_ACCESS = 0x00 to restore the user bank), writing D1 if the output changed.
 
 **(c) mlc-binary** (latency_test_mlc_binary_w75): on each INT1 edge, unconditionally toggles D1 without reading MLC0_SRC, valid for the 2-class case and providing a kernel/gpiod-only latency floor against which (b)'s I²C-read overhead is measured. Because this study measures decision-delivery latency rather than classification accuracy, parity is enforced at the level of identical accelerometer configuration, window length, and binary motion/still decision semantics; the mlc-binary condition isolates the non-classifier read path.
+
+The host pipeline sets INT1_CTRL = 0x01 (DRDY); mlc and mlc-binary set INT1_CTRL = 0x00, routing the MLC's decision via MD1_CFG = 0x02 instead — intrinsic to each pipeline's decision source (raw sample vs. embedded classifier).
 
 ## III.C Stress Conditions
 

@@ -182,12 +182,16 @@ def main():
     t0 = t_d0_rise
 
     fig, (ax_meas, ax_schem) = plt.subplots(
-        2, 1, figsize=(7.16, 6.4),
-        gridspec_kw={"height_ratios": [1.15, 1.0], "hspace": 0.55},
+        2, 1, figsize=(7.16, 3.35),
+        gridspec_kw={"height_ratios": [1.55, 0.68], "hspace": 0.75},
     )
 
     # ---------------- Panel (a): measured D0/D1/D2 ----------------
-    lanes = [("D2", 2, 0.0), ("D1", 1, 1.4), ("D0", 0, 2.8)]
+    # Lane pitch tightened from 1.4 to 1.15 versus the original design.
+    # Annotations are placed within each lane's own empty horizontal
+    # stretch (not in the inter-lane gap) so tightening the pitch does
+    # not require shrinking annotation text.
+    lanes = [("D2", 2, 0.0), ("D1", 1, 1.15), ("D0", 0, 2.3)]
     for name, ch_idx, y_base in lanes:
         xs, ys = build_steps(edges[ch_idx], initial[ch_idx], t_start, t_end)
         xs_ms = [(x - t0) * 1e3 for x in xs]
@@ -198,35 +202,38 @@ def main():
                      fontsize=9, fontweight="bold", color=CHANNEL_COLORS[name])
 
     # D0->D1 gap annotation (upper area, clear of all three lanes)
-    gap_y = 4.15
+    gap_y = 3.45
     ax_meas.annotate(
         "", xy=((t_d1_rise - t0) * 1e3, gap_y), xytext=((t_d0_rise - t0) * 1e3, gap_y),
         arrowprops=dict(arrowstyle="<->", color="black", linewidth=0.9),
     )
     ax_meas.text((t_d0_rise + t_d1_rise) / 2 * 1e3 - t0 * 1e3, gap_y + 0.12,
-                 f"D0→D1 gap: {gap_us:.1f} µs\n(measured, trial {TRIAL_ID}, illustrative single-trial timing)",
+                 f"D0→D1 gap: {gap_us:.1f} µs (measured,\nillustrative single-trial timing)",
                  ha="center", va="bottom", fontsize=7.5, style="italic")
 
-    # D0 pulse width annotation: short leader confined to the gap between
-    # the D0 lane (bottom at y=2.8) and the D1 lane (top at y=2.3).
+    # D0 pulse width annotation: placed in the D0 lane's own empty stretch
+    # after the pulse falls, pointing back at the pulse (no longer needs
+    # the tightened inter-lane gap).
     d0_mid_ms = (t_d0_rise - t0) * 1e3 + d0_width_ms / 2
-    ax_meas.plot([d0_mid_ms, d0_mid_ms], [2.42, 2.78], color="gray", linewidth=0.7)
-    ax_meas.text(d0_mid_ms, 2.36, f"D0 (INT1) pulse: {d0_width_ms:.2f} ms",
-                 ha="center", va="top", fontsize=7.5, color="#1a1a1a")
+    ax_meas.annotate(
+        f"D0 (INT1) pulse: {d0_width_ms:.2f} ms",
+        xy=(d0_mid_ms, 2.3 + 0.9), xytext=(9.6, 2.3 + 0.45),
+        ha="left", va="center", fontsize=7.5, color="#1a1a1a",
+        arrowprops=dict(arrowstyle="->", color="gray", linewidth=0.7),
+    )
 
-    # D1 pulse width annotation: short leader confined to the gap between
-    # the D1 lane (bottom at y=1.4) and the D2 lane (top at y=0.9), pointing
-    # up at the (visually thin, ~3 us wide) spike from below.
+    # D1 pulse width annotation: placed in the D1 lane's own empty stretch
+    # to the right, pointing back at the (visually thin) spike.
     d1_mid_ms = (t_d1_rise - t0) * 1e3 + d1_width_us * 1e-3 / 2
     ax_meas.annotate(
-        f"D1 pulse width: {d1_width_us:.2f} µs (measured;\nvisually a single line at this ms scale)",
-        xy=(d1_mid_ms, 1.42), xytext=(d1_mid_ms + 2.6, 1.05),
+        f"D1 pulse: {d1_width_us:.2f} µs (measured; a\nsingle line at this ms scale)",
+        xy=(d1_mid_ms, 1.15 + 0.3), xytext=(2.6, 1.15 + 0.45),
         ha="left", va="center", fontsize=7.5, color="#1a1a1a",
         arrowprops=dict(arrowstyle="->", color="gray", linewidth=0.7),
     )
 
     ax_meas.set_xlim((t_start - t0) * 1e3, (t_end - t0) * 1e3)
-    ax_meas.set_ylim(-0.3, 4.9)
+    ax_meas.set_ylim(-0.3, 4.2)
     ax_meas.set_yticks([])
     ax_meas.set_xlabel("Time relative to D0 rising edge (ms)", fontsize=9)
     ax_meas.spines["top"].set_visible(False)
@@ -240,19 +247,25 @@ def main():
     )
 
     # ---------------- Panel (b): schematic I2C structure ----------------
+    # Compacted: the in-image bottom citation/caveat text from the original
+    # design is dropped here because it is redundant with the LaTeX
+    # \caption{} below the figure, which already states "occurring inside
+    # that gap", "per read_mlc_src() and [2]", and "no SDA/SCL capture
+    # exists ... not drawn to a measured timescale" in full. Nothing is
+    # lost, only the duplicate in-image copy of it.
     ax_schem.set_xlim(0, 10)
-    ax_schem.set_ylim(0, 3)
+    ax_schem.set_ylim(0, 2.1)
     ax_schem.axis("off")
 
     # Overall bordered box marking this whole panel as schematic
     outer = mpatches.FancyBboxPatch(
-        (0.15, 0.15), 9.7, 2.7, boxstyle="round,pad=0.05,rounding_size=0.08",
+        (0.15, 0.1), 9.7, 1.9, boxstyle="round,pad=0.05,rounding_size=0.08",
         linewidth=1.2, linestyle="--", edgecolor="#444444", facecolor="#f7f7f7",
     )
     ax_schem.add_patch(outer)
 
-    ax_schem.text(5.0, 2.55, "SCHEMATIC — NOT TO SCALE — NOT INDEPENDENTLY MEASURED",
-                  ha="center", va="center", fontsize=8.5, fontweight="bold", color="#8a2f00")
+    ax_schem.text(5.0, 1.8, "SCHEMATIC — NOT TO SCALE — NOT INDEPENDENTLY MEASURED",
+                  ha="center", va="center", fontsize=7.3, fontweight="bold", color="#8a2f00")
 
     steps = [
         ("write\nFUNC_CFG_ACCESS\n(bank → embedded)", "#648FFF"),
@@ -261,31 +274,22 @@ def main():
     ]
     box_w, gap = 2.7, 0.55
     x0 = (10 - (3 * box_w + 2 * gap)) / 2
+    box_y, box_h = 0.3, 0.95
     for i, (label, color) in enumerate(steps):
         x = x0 + i * (box_w + gap)
         box = mpatches.FancyBboxPatch(
-            (x, 1.05), box_w, 1.05, boxstyle="round,pad=0.04",
+            (x, box_y), box_w, box_h, boxstyle="round,pad=0.04",
             linewidth=1.0, edgecolor="black", facecolor=color, alpha=0.45,
             hatch="//",
         )
         ax_schem.add_patch(box)
-        ax_schem.text(x + box_w / 2, 1.575, label, ha="center", va="center", fontsize=7.8)
+        ax_schem.text(x + box_w / 2, box_y + box_h / 2, label, ha="center", va="center", fontsize=6.6)
         if i < 2:
-            ax_schem.annotate("", xy=(x + box_w + gap * 0.15, 1.575),
-                               xytext=(x + box_w, 1.575),
+            ax_schem.annotate("", xy=(x + box_w + gap * 0.85, box_y + box_h / 2),
+                               xytext=(x + box_w + gap * 0.15, box_y + box_h / 2),
                                arrowprops=dict(arrowstyle="->", color="black", linewidth=0.9))
 
-    ax_schem.annotate(
-        "", xy=(x0 + 3 * box_w + 2 * gap, 0.55), xytext=(x0, 0.55),
-        arrowprops=dict(arrowstyle="<->", color="#444444", linewidth=0.8),
-    )
-    ax_schem.text(5.0, 0.30,
-                  "occurs somewhere inside the measured D0→D1 gap above "
-                  "(no SDA/SCL capture exists for this trial; sequence per "
-                  "read_mlc_src(), latency_test_mlc.c:124–134, and AN5259 [2])",
-                  ha="center", va="center", fontsize=7, style="italic", color="#333333")
-
-    ax_schem.set_title("(b) I²C bank-switch read sequence (schematic)", fontsize=9.5, pad=8)
+    ax_schem.set_title("(b) I²C bank-switch read sequence (schematic)", fontsize=8.5, pad=6)
 
     fig.suptitle(
         "R1 pt.3: wire-level timing for one representative trial (D0/D1/D2 measured; "

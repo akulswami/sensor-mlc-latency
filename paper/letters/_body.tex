@@ -40,9 +40,13 @@ Three pipelines are compared end-to-end, sharing the same I\textsuperscript{2}C 
 
 \textbf{(a) host} (host\_pipeline\_parity): polls the accelerometer at 208 Hz, assembles a 75-sample window, and applies a decision-tree classifier (variance of accelerometer L2-norm against a calibrated threshold), toggling D1 on every output state change.
 
+Host window and MLC window are both 721.2 ms: parity\_core's pc\_step implements a 2:1 decimation of the host sample stream, equalizing the two windows to a common period.
+
 \textbf{(b) mlc} (latency\_test\_mlc\_w75): on each INT1 edge, performs the three I\textsuperscript{2}C transactions of the bank-switch read mandated by the LSM6DSOX register architecture \cite{ref2} (write FUNC\_CFG\_ACCESS = 0x80 to enter the embedded-function bank, read MLC0\_SRC = 0x70, write FUNC\_CFG\_ACCESS = 0x00 to restore the user bank), writing D1 if the output changed.
 
 \textbf{(c) mlc-binary} (latency\_test\_mlc\_binary\_w75): on each INT1 edge, unconditionally toggles D1 without reading MLC0\_SRC, valid for the 2-class case and providing a kernel/gpiod-only latency floor against which (b)'s I\textsuperscript{2}C-read overhead is measured. Because this study measures decision-delivery latency rather than classification accuracy, parity is enforced at the level of identical accelerometer configuration, window length, and binary motion/still decision semantics; the mlc-binary condition isolates the non-classifier read path.
+
+The host pipeline sets INT1\_CTRL = 0x01 (DRDY); mlc and mlc-binary set INT1\_CTRL = 0x00, routing the MLC's decision via MD1\_CFG = 0x02 instead --- intrinsic to each pipeline's decision source (raw sample vs. embedded classifier).
 
 \subsection{Stress Conditions}
 
@@ -124,7 +128,7 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 \subsection{Multimodal latency distributions}
 
-\textbf{Fig.~\ref{fig:latency}} reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 $\mu$s exceeds median 681.5 $\mu$s, p95 1,779.7 $\mu$s), and mlc-binary/idle shows three modes near 60, 240, and 470 $\mu$s. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
+\textbf{Fig.~\ref{fig:latency}} reveals multimodal structure in both MLC pipelines: the mlc/idle distribution is bimodal (mean 866.6 $\mu$s exceeds median 681.5 $\mu$s, p95 1,779.7 $\mu$s), and mlc-binary/idle shows three modes near 60, 240, and 470 $\mu$s. The mlc-binary/i2c-contention distribution has a hidden second mode: median latency is 49.4 $\mu$s, but p95 reaches 246.7 $\mu$s, indicating a secondary high-latency population not captured by the median alone. Both collapse to tighter distributions under contention and stress. We report this as exploratory.
 
 \subsection{MLC decision cadence}
 
@@ -141,13 +145,11 @@ No cell exceeded the pre-registered 10\% exclusion ceiling (highest: mlc/idle, 2
 
 The headline finding, that host classification is 2.1--2.3$\times$ faster than the on-sensor MLC at idle and under I\textsuperscript{2}C contention, is explained by \textbf{Fig.~\ref{fig:latency}(c)}: the mlc-binary pipeline, which performs zero I\textsuperscript{2}C transactions on the decision path (toggling D1 unconditionally on every INT1 edge), reaches a median of 49.4 $\mu$s under contention. The mlc-minus-mlc-binary difference under identical conditions isolates the I\textsuperscript{2}C read overhead at roughly 1,276 $\mu$s under contention (1,325.4 $-$ 49.4) and 476 $\mu$s under stress. Under CPU stress, where the I\textsuperscript{2}C bus itself is uncontended, the host-MLC gap narrows to 1.6$\times$ (345.0 vs 546.1 $\mu$s): the read protocol still costs 476 $\mu$s, but without concurrent bus traffic to amplify it. This cost is not the silicon's classification time; it is the bank-switch read protocol's three-transaction sequence (write FUNC\_CFG\_ACCESS, read MLC0\_SRC, write it back) competing for bus arbitration.
 
-Thus, the measured host-MLC gap is primarily a bus-protocol artifact. Systems using the LSM6DSOX MLC over I\textsuperscript{2}C inherit the bank-switch read overhead on the standard read path, and this overhead scales with bus contention rather than classifier complexity.
-
 \subsection{Implications for safety-critical edge ML}
 
 A naive reading of ``on-sensor inference is faster'' would favor the MLC for low-latency safety-critical loops such as exoskeleton control \cite{ref3}. Our results invert that on the wire-level latency axis: the host reaches its decision 359 $\mu$s earlier at idle, 753 $\mu$s earlier under contention, and is equivalence-null against CPU stress (H5').
 
-The control results sharpen the practical lesson: \textbf{``stress'' is not a single thing.} CPU stress is significant on energy (H6', +3,420 mW) but null on host latency (H5') and on classifier reliability; I\textsuperscript{2}C bus contention is significant on latency (H2', H3') but null on classifier reliability (H7' falsified; the stable-trial rate is, if anything, slightly higher under contention). A specification bundling both into one ``stress margin'' over-provisions one axis while under-provisioning the other.
+The control results sharpen the practical lesson: \textbf{``stress'' is not a single thing.} CPU stress is significant on energy but not latency; I\textsuperscript{2}C contention is significant on latency but not classifier reliability. Bundling both into one ``stress margin'' mis-budgets for each.
 
 \subsection{Multimodal distributions and decision cadence}
 
@@ -157,9 +159,11 @@ Second, for unsynchronized external stimuli, the observed 706.5 ms cadence (Sect
 
 \subsection{Limitations}
 
-Results are specific to one platform, sensor IC family, bus protocol (I\textsuperscript{2}C, not SPI), ODR, and MLC configuration; the structural findings should transfer to similar ARM-edge + ST-MEMS combinations but require confirmation. SPI access in particular could reduce the per-transaction overhead that drives our result. A pre-registered RT-scheduling (chrt+taskset) ablation was specified but not activated; pilot data suggest it could roughly halve MLC contention latency, making it the most concrete next step.
+Results are specific to one platform, sensor IC family, bus protocol (I\textsuperscript{2}C, not SPI), ODR, and MLC configuration; the structural findings should transfer to similar ARM-edge + ST-MEMS combinations but require confirmation. SPI access in particular could reduce the per-transaction overhead that drives our result. The three-transaction bank-switch cost reflects this implementation's choice to restore the user bank after every MLC0\_SRC read, not an unconditional silicon requirement: an application that caches bank state and defers the switch-back could avoid at least one transaction (not measured here). SPI access would reduce this per-transaction overhead but was not measured, so no speedup is quantified. Successor LSM6DSOX-family parts (LSM6DSV16X, LSM6DSO32X) retain the same bank-switched architecture, so the overhead is not specific to this part.
+
+A pre-registered RT-scheduling (chrt+taskset) ablation was specified but not activated; pilot data suggest it could roughly halve MLC contention latency, making it the most concrete next step.
 
 
 \section{Conclusion}
 
-We measured wire-level interrupt-to-decision latency for three pipelines on a Jetson Orin Nano + LSM6DSOX edge platform. Against the intuition that on-sensor inference is faster, the host pipeline achieves 2.1$\times$ lower median latency at idle and 2.3$\times$ lower under I\textsuperscript{2}C contention; the mlc-binary variant isolates the bank-switch read protocol's ~1,276 $\mu$s contention cost. The three-transaction I\textsuperscript{2}C read, not the silicon's classification, dominates. The control results show that which resource is contended is itself the safety-critical variable: CPU stress registers on energy but not latency, while I\textsuperscript{2}C contention does the reverse. We document a reproducible 706.5 ms MLC decision cadence imposing a 0--706.5 ms stimulus-to-decision wait for unsynchronized stimuli.
+We measured wire-level interrupt-to-decision latency for three pipelines on a Jetson Orin Nano + LSM6DSOX edge platform. The host pipeline is consistently faster; the three-transaction I\textsuperscript{2}C read, not the silicon's classification, dominates.
