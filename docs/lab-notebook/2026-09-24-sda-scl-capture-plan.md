@@ -38,7 +38,7 @@ frequency-ramp/wakeup effects. The latency shift and jc_eff collapse share
 this single root cause; no hardware or pipeline regression is indicated.
 
 Action: blocks b005–b008 (mlc-idle, mlc-i2c-contention, mlc-stress,
-mlc-binary-idle) are captured with CPU clocks pegged (jetson_clocks) to match
+mlc-binary-idle) are captured under nvpmodel mode 3 (MAXN_SUPER_JC), the measurement configuration required by pre-registration v7.6 Change 2, to match
 the confirmatory regime; clock state is recorded in each block directory
 (nvpmodel -q and tegrastats header) at capture time. Blocks b001–b004 are
 retained as a labeled dynamic-clock regime for the OS-sensitivity analysis;
