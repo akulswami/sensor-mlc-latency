@@ -159,7 +159,7 @@ The full numbers, including all three conditions and both power rails, are provi
 
 ### Point 7 — Overhead decomposition
 
-**Response:** We can decompose two of the five requested components directly from wire-level data: mlc-binary isolates the kernel/gpiod floor (49.4 µs under contention), and mlc-minus-mlc-binary isolates the full I²C read path (476 µs uncontended, 1,276 µs contended) — the increase under contention (~800 µs) is attributable to bus-arbitration delay specifically, since Linux scheduling and GPIO-write cost are shared between mlc and mlc-binary and cancel in the subtraction. Individually separating I²C transaction time from bus-arbitration time, or confirming the silicon's own classification time, would require a direct SDA/SCL bus trace, which this study's instrumentation does not capture; this is a direction for follow-on work.
+**Response:** We can decompose two of the five requested components directly from wire-level data: mlc-binary isolates the kernel/gpiod floor (49.4 µs under contention), and mlc-minus-mlc-binary isolates the full I²C read path (476 µs uncontended, 1,276 µs contended) — the increase under contention (~800 µs) is attributable to bus-arbitration delay specifically, since Linux scheduling and GPIO-write cost are shared between mlc and mlc-binary and cancel in the subtraction. Individually separating I²C transaction time from bus-arbitration time, or confirming the silicon's own classification time, would require SDA/SCL bus traces across the full campaign; this study captures SDA/SCL only for the single representative trial shown in S4, which cannot support a statistical decomposition; a campaign-wide trace is a direction for follow-on work.
 
 ---
 
