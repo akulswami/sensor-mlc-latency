@@ -1,7 +1,7 @@
 \documentclass{IEEE_lsens}
 %DIF LATEXDIFF DIFFERENCE FILE
-%DIF DEL old/paper/letters/main.tex   Sat Jun  6 18:36:31 2026
-%DIF ADD new/paper/letters/main.tex   Thu Sep 24 10:44:34 2026
+%DIF DEL /tmp/tracked-changes-ykq8sfkk/old/paper/letters/main.tex   Sat Jun  6 18:36:31 2026
+%DIF ADD /tmp/tracked-changes-ykq8sfkk/new/paper/letters/main.tex   Fri Sep 25 16:47:59 2026
 
 \usepackage{cite}
 \usepackage{graphicx}
@@ -160,7 +160,7 @@ Pre-registration is used here to separate pre-specified sensor-measurement hypot
 
 The edge platform is an NVIDIA Jetson Orin Nano Developer Kit (JetPack 6.2.2, kernel 5.15.148-tegra, 6-core ARM Cortex-A78AE). All measurements ran under a custom MAXN\_SUPER\_JC nvpmodel (v7.6 \cite{ref4}) pinning all six CPUs at 1728 MHz; per-block jetson\_clocks effectiveness (tegrastats samples $\geq$ 1700 MHz) was $\geq$ 99\%, with all 81 blocks at 100\%.
 
-The sensor is an STMicroelectronics LSM6DSOX 6-axis IMU breakout (STEVAL-MKI197V1) on I\textsuperscript{2}C bus 7 (pins 3/5, address 0x6A), the bus running at 400 kHz (Fast Mode, Jetson default). All three pipelines configure the accelerometer identically (CTRL1\_XL = 0x50: 208 Hz, $\pm$2 g, LPF2 off). The MLC runs at \DIFaddbegin \DIFadd{104 Hz (the configured accelerometer/MLC output data rate, distinct from the gyroscope\_odr field reported as }\DIFaddend 26 Hz \DIFaddbegin \DIFadd{in the ST MEMS Studio export) }\DIFaddend with a custom 2-class motion/still classifier (75-sample windows, config mlc\_motion\_w75.h) trained in ST MEMS Studio, with output routed to INT1.
+The sensor is an STMicroelectronics LSM6DSOX 6-axis IMU \DIFdelbegin \DIFdel{breakout (STEVAL-MKI197V1}\DIFdelend \DIFaddbegin \DIFadd{on an Adafruit breakout (PID 4438; onboard 3.3 V regulation and 10K I\textsuperscript{2}C pull-ups}\DIFaddend ) on I\textsuperscript{2}C bus 7 (pins 3/5, address 0x6A) \DIFdelbegin \DIFdel{, the bus running }\DIFdelend at 400 kHz (Fast Mode, Jetson default). All three pipelines configure the accelerometer identically (CTRL1\_XL = 0x50: 208 Hz, $\pm$2 g, LPF2 off). The MLC runs at \DIFdelbegin \DIFdel{26 Hz }\DIFdelend \DIFaddbegin \DIFadd{104 Hz (EMB\_FUNC\_ODR\_CFG\_C = 0x35: MLC\_ODR = 0b11, half the 208 Hz accelerometer ODR) }\DIFaddend with a custom 2-class motion/still classifier (75-sample windows, config mlc\_motion\_w75.h) trained in ST MEMS Studio, with output routed to INT1.
 
 Two Jetson GPIO lines are instrumented with a Saleae Logic Pro 8 (250 MS/s): \textbf{D0} on pin 15 (INT1 from the LSM6DSOX, gpiochip0 line 85) and \textbf{D1} on pin 11 (decision edge from the pipeline under test, line 112). This yields nanosecond-resolution wire-level timestamps independent of the Jetson clock and of SSH command jitter (both D0 and D1 are wire edges). The servo PWM command is additionally captured on D2 as a timing reference. The wire-level GPIO timestamping methodology follows our prior cross-platform characterization \cite{ref9}. Motion stimulus is an SG90 servo on a PCA9685 PWM controller (I\textsuperscript{2}C bus 1, address 0x60; the board default 0x40 collides with the on-board INA3221, so an address-select pad was bridged to set the A5 bit, relocating the controller to 0x60), commanded over SSH. The full measurement setup is shown in Fig.~\ref{fig:setup}.
 
@@ -240,8 +240,10 @@ The confirmatory campaign collected 4,860 candidate trials across 81 blocks of 3
 
 \begin{figure}[!t]
   \centering
-  \includegraphics[width=0.72\columnwidth]{figure_2_setup_full.jpeg}
-  \caption{Measurement setup. The LSM6DSOX IMU (on a servo-driven motion stimulus) and the PCA9685 servo controller connect to the NVIDIA Jetson Orin Nano over separate I\textsuperscript{2}C buses; a Saleae Logic Pro 8 taps the sensor INT1 edge (D0), the host decision GPIO (D1), and the servo PWM command (D2) for wire-level timing.}
+  \DIFdelbeginFL %DIFDELCMD < \includegraphics[width=0.72\columnwidth]{figure_2_setup_full.jpeg}
+%DIFDELCMD <   %%%
+\DIFdelendFL \DIFaddbeginFL \includegraphics[width=0.62\columnwidth]{figure_2_setup_full.jpeg}
+  \DIFaddendFL \caption{Measurement setup. The LSM6DSOX IMU (on a servo-driven motion stimulus) and the PCA9685 servo controller connect to the NVIDIA Jetson Orin Nano over separate I\textsuperscript{2}C buses; a Saleae Logic Pro 8 taps the sensor INT1 edge (D0), the host decision GPIO (D1), and the servo PWM command (D2) for wire-level timing.}
   \label{fig:setup}
 \end{figure}
 
@@ -279,13 +281,12 @@ No cell exceeded the pre-registered 10\% exclusion ceiling (highest: mlc/idle, 2
 
 \subsection{The I\textsuperscript{2}C read protocol dominates wire-level latency}
 
-The headline finding, that host classification is 2.1--2.3$\times$ faster than the on-sensor MLC \DIFdelbegin \DIFdel{under every tested condition}\DIFdelend \DIFaddbegin \DIFadd{at idle and under I\textsuperscript{2}C contention}\DIFaddend , is explained by \textbf{Fig.\DIFdelbegin \DIFdel{1}\DIFdelend \DIFaddbegin \DIFadd{~\ref{fig:latency}}\DIFaddend (c)}: the mlc-binary pipeline, which performs zero I\textsuperscript{2}C transactions on the decision path (toggling D1 unconditionally on every INT1 edge), reaches a median of 49.4 $\mu$s under contention. The mlc-minus-mlc-binary difference under identical conditions isolates the I\textsuperscript{2}C read overhead at roughly 1,276 $\mu$s under contention (1,325.4 $-$ 49.4) and 476 $\mu$s under stress. \DIFaddbegin \DIFadd{Under CPU stress, where the I\textsuperscript{2}C bus itself is uncontended, the host-MLC gap narrows to 1.6$\times$ (345.0 vs 546.1 $\mu$s): the read protocol still costs 476 $\mu$s, but without concurrent bus traffic to amplify it. }\DIFaddend This cost is not the silicon's classification time; it is the bank-switch read protocol's three-transaction sequence (write FUNC\_CFG\_ACCESS, read MLC0\_SRC, write it back) competing for bus arbitration.
-
-\DIFdelbegin \DIFdel{Thus, the measured host-MLC gap is primarily a bus-protocol artifact. Systems using the LSM6DSOX MLC over I\textsuperscript{2}C inherit the bank-switch read overhead on the standard read path, and this overhead scales with bus contention rather than classifier complexity.
-}%DIFDELCMD < 
+The headline finding, that host classification is 2.1--2.3$\times$ faster than the on-sensor MLC \DIFdelbegin \DIFdel{under every tested condition}\DIFdelend \DIFaddbegin \DIFadd{at idle and under I\textsuperscript{2}C contention}\DIFaddend , is explained by \textbf{Fig.\DIFdelbegin \DIFdel{1}\DIFdelend \DIFaddbegin \DIFadd{~\ref{fig:latency}}\DIFaddend (c)}: the mlc-binary pipeline, which performs zero I\textsuperscript{2}C transactions on the decision path (toggling D1 unconditionally on every INT1 edge), reaches a median of 49.4 $\mu$s under contention. The mlc-minus-mlc-binary difference under identical conditions isolates the I\textsuperscript{2}C read overhead at roughly 1,276 $\mu$s under contention (1,325.4 $-$ 49.4) and 476 $\mu$s under stress. \DIFaddbegin \DIFadd{Under CPU stress, where the I\textsuperscript{2}C bus itself is uncontended, the host-MLC gap narrows to 1.6$\times$ (345.0 vs 546.1 $\mu$s): the read protocol still costs 476 $\mu$s, but without concurrent bus traffic to amplify it. }\DIFaddend This cost is not the silicon's classification time; it is the bank-switch read protocol's three-transaction sequence (write FUNC\_CFG\_ACCESS, read MLC0\_SRC, write it back) competing for bus arbitration. \DIFdelbegin %DIFDELCMD < 
 
 %DIFDELCMD < %%%
-\DIFdelend \subsection{Implications for safety-critical edge ML}
+\DIFdel{Thus, the measured host-MLC gap is primarily a bus-protocol artifact. Systems using the LSM6DSOX MLC over I\textsuperscript{2}C inherit the bank-switch read overhead on the standard read path, and this overhead scales with bus contention rather than classifier complexity}\DIFdelend \DIFaddbegin \DIFadd{A measured SDA/SCL capture of this sequence for one representative trial (confirmatory block b005) is provided in the supplementary material (S4)}\DIFaddend .
+
+\subsection{Implications for safety-critical edge ML}
 
 A naive reading of ``on-sensor inference is faster'' would favor the MLC for low-latency safety-critical loops such as exoskeleton control \cite{ref3}. Our results invert that on the wire-level latency axis: the host reaches its decision 359 $\mu$s earlier at idle, 753 $\mu$s earlier under contention, and is equivalence-null against CPU stress (H5').
 
@@ -293,13 +294,14 @@ The control results sharpen the practical lesson: \textbf{``stress'' is not a si
 
 \subsection{Multimodal distributions and decision cadence}
 
-Two secondary findings carry safety-critical weight. First, the MLC pipelines are multimodal at idle (Section~V.B): the mlc/idle p95 of 1,\DIFdelbegin \DIFdel{781 }\DIFdelend \DIFaddbegin \DIFadd{780 }\DIFaddend $\mu$s is 2.6$\times$ its median, a factor that vanishes under a unimodal-Gaussian assumption. For a ``worst latency observed with probability 1 $-$ $\varepsilon$'' specification, the upper mode, not the median, is the relevant quantity.
+\DIFdelbegin \DIFdel{Two secondary findings carry safety-critical weight. }\DIFdelend First, the MLC pipelines are multimodal at idle (Section~V.B): the mlc/idle p95 of 1,\DIFdelbegin \DIFdel{781 }\DIFdelend \DIFaddbegin \DIFadd{780 }\DIFaddend $\mu$s is 2.6$\times$ its median, a factor that vanishes under a unimodal-Gaussian assumption. For a ``worst latency observed with probability 1 $-$ $\varepsilon$'' specification, the upper mode, not the median, is the relevant quantity.
 
 Second, for unsynchronized external stimuli, the observed 706.5 ms cadence (Section~V.C) can dominate full \emph{stimulus-to-decision} latency at the system level. Because the MLC fires only on its internal clock boundary, an unsynchronized real-world stimulus waits a uniformly-distributed 0--706.5 ms (mean 353 ms) before the silicon can respond. This is invisible on the D0-to-D1 wire-level axis we measured but is a structural floor; the 1--2 ms wire-level differences this paper characterizes are second-order against it.
 
 \subsection{Limitations}
 
-Results are specific to one platform, sensor IC family, bus protocol (I\textsuperscript{2}C, not SPI), ODR, and MLC configuration; the structural findings should transfer to similar ARM-edge + ST-MEMS combinations but require confirmation. SPI access in particular could reduce the per-transaction overhead that drives our result. \DIFaddbegin \DIFadd{The three-transaction bank-switch cost reflects this implementation's choice to restore the user bank after every MLC0\_SRC read, not an unconditional silicon requirement: an application that caches bank state and defers the switch-back could avoid at least one transaction (not measured here). SPI access would reduce this per-transaction overhead but was not measured, so no speedup is quantified. Successor LSM6DSOX-family parts (LSM6DSV16X, LSM6DSO32X) retain the same bank-switched architecture, so the overhead is not specific to this part.
+Results are specific to one platform, sensor IC family, bus protocol (I\textsuperscript{2}C, not SPI), ODR, and MLC configuration; the structural findings should transfer to similar ARM-edge + ST-MEMS combinations \DIFaddbegin \DIFadd{--- successor parts (LSM6DSV16X, LSM6DSO32X) retain the same bank-switched architecture --- }\DIFaddend but require confirmation. \DIFdelbegin \DIFdel{SPI access in particular could reduce the }\DIFdelend \DIFaddbegin \DIFadd{The three-transaction bank-switch cost reflects this implementation's choice to restore the user bank after every MLC0\_SRC read, not an unconditional silicon requirement: an application that caches bank state and defers the switch-back could avoid at least one transaction (not measured here). SPI access would reduce this }\DIFaddend per-transaction overhead \DIFdelbegin \DIFdel{that drives our result.
+}\DIFdelend \DIFaddbegin \DIFadd{but was not measured, so no speedup is quantified.
 }
 
 \DIFaddend A pre-registered RT-scheduling (chrt+taskset) ablation was specified but not activated; pilot data suggest it could roughly halve MLC contention latency, making it the most concrete next step.
