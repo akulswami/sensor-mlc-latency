@@ -4,6 +4,8 @@ mode 3 (MAXN_SUPER_JC), the measurement configuration required by pre-registrati
 Change 2 (Zenodo DOI 10.5281/zenodo.20400025). All four blocks pass the jc_eff gate at
 100.00% (threshold 99%). Block identity verified by Saleae trigger-sample fingerprinting
 against capture-start order (40/40, 35/35, 31/31, 34/34, 9/9 matches).
+Raw captures, logs, and verification code for every block cited here are archived at
+Zenodo DOI 10.5281/zenodo.22950121 (evidence package v1.1.0-r1).
 
 ## Protocol verification (three-transaction bank-switch read)
 Every decision window in every mlc block contains the complete sequence on the wire:

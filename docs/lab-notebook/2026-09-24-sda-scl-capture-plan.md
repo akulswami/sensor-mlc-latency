@@ -47,3 +47,5 @@ they are not used as gate-passing evidence.
 Additional correction: the i2c-contention hammer targets the sensor's own
 address (0x6A) with WHO_AM_I (0x0F) reads, not a separate 0x60 device as
 previously assumed; verified by on-wire decode of block b002.
+
+**Evidence archive (2026-09-24):** all blocks described in this plan and its amendment - raw Saleae captures, tegrastats/sweep logs, block metadata, and verification code - are archived at Zenodo DOI 10.5281/zenodo.22950121 (evidence package v1.1.0-r1).
