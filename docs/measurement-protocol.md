@@ -385,7 +385,7 @@ values as operational parameters.
 
 ## 11. D2 motion-window gating (v7.3)
 
-Per pre-reg v7.3 (2026-05-25, Zenodo DOI [TBD-DOI-INSERT]), motion-window
+Per pre-reg v7.3 (2026-05-25, Zenodo DOI 10.5281/zenodo.20389899), motion-window
 gating for trial assignment uses the Saleae D2 channel (PCA9685 channel-0
 PWM) rather than sweep.log. The classification is per-PWM-cycle:
 

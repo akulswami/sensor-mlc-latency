@@ -2,7 +2,7 @@
 
 *Wire-Level Interrupt-to-Decision Latency of On-Sensor MLC versus Host Inference on the NVIDIA Jetson Orin Nano: A Pre-Registered Measurement Study*
 
-Not part of the 4-page Letters build (`build_tex.py` does not read this file). S2 is referenced from the main text by a short pointer sentence in §V.A. S1 and S3 are provided here without an in-text manuscript pointer, per the page-budget decision made during this revision.
+Not part of the 4-page Letters build (`build_tex.py` does not read this file). S2 and S4 are referenced from the main text by short pointer sentences (§V.A and §VI.A, respectively). S1 and S3 are provided here without an in-text manuscript pointer, per the page-budget decision made during this revision.
 
 ---
 
@@ -36,6 +36,14 @@ Jetson platform power (VDD_CPU_GPU_CV, INA3221) differs between host and MLC pip
 
 ---
 
-## S3. Candidate mechanisms for the idle multimodal distribution (referenced from §V.B)
+## S3. Candidate mechanisms for the idle multimodal distribution
 
 We do not present a confirmed mechanism. Candidate explanations include: (a) idle-state I²C bus arbitration on the Jetson's `i2c-tegra194` driver having multiple equilibrium timings between conflicting wake-up paths, (b) the gpiod write path through `/dev/gpiochip0` traversing different kernel call sequences depending on whether the underlying chardev poll mechanism is in steady-state or recently-armed, or (c) some interaction between the MLC's 706.5 ms internal cadence (§V.C) and the kernel's microsecond-resolution interrupt-arrival timing. Distinguishing these requires ftrace instrumentation of the I²C driver and the gpiochip event flow at the kernel level, which lies outside the scope of this wire-level study.
+
+---
+
+## S4. Measured SDA/SCL capture of the three-transaction read (referenced from §VI.A)
+
+![Measured wire-level decision window, confirmatory block b005](../figures/Fig-wire-timing-b005.png)
+
+**Fig. S4.** Measured wire-level decision window for one representative trial (confirmatory block b005, mlc pipeline; Saleae capture at t = 22.906 s into the block). Lanes top to bottom: D0 (INT1), SDA, SCL, D1 (decision strobe). The three-transaction bank-switch read is decoded on SDA/SCL inside the D0→D1 interval: T1 writes FUNC_CFG_ACCESS (W 01 80), T2 reads MLC0_SRC = 0x04, T3 restores FUNC_CFG_ACCESS (W 01 00). For this trial: host scheduling 57.4 µs, I²C triple 383.4 µs, decision strobe 27.5 µs, total D0→D1 468.3 µs; no foreign I²C frames appear inside the window. Single-trial illustration, not a campaign statistic.
