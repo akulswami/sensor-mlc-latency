@@ -25,3 +25,25 @@ and decomposition of MLC decision latency into bus time vs. scheduling/gaps.
 - Decompose D0->D1 latency: bus transaction time vs. inter-transaction gaps vs. GPIO path
 - Measure SCL/SDA rise times (spot check)
 - No on-wire arbitration expected (single master; Linux i2c adapter lock serializes)
+
+## Amendment 2026-09-25 — clock-regime provenance and re-capture
+
+Finding: retroactive tegrastats inspection shows the confirmatory campaign
+(2026-05-26, e.g. b018) ran with all CPU cores pegged at 1728 MHz, while the
+2026-09-24 evidence blocks b001–b004 ran under dynamic clocking (729 MHz idle,
+ramping on load). Consequences: (a) all four 09-24 blocks fail the v7.6
+servo-jitter inclusion gate (jc_eff 5.8–97.8% vs 99% threshold; confirmatory
+blocks were 100%); (b) idle-regime D0→D1 latency is inflated ~0.66 ms by
+frequency-ramp/wakeup effects. The latency shift and jc_eff collapse share
+this single root cause; no hardware or pipeline regression is indicated.
+
+Action: blocks b005–b008 (mlc-idle, mlc-i2c-contention, mlc-stress,
+mlc-binary-idle) are captured with CPU clocks pegged (jetson_clocks) to match
+the confirmatory regime; clock state is recorded in each block directory
+(nvpmodel -q and tegrastats header) at capture time. Blocks b001–b004 are
+retained as a labeled dynamic-clock regime for the OS-sensitivity analysis;
+they are not used as gate-passing evidence.
+
+Additional correction: the i2c-contention hammer targets the sensor's own
+address (0x6A) with WHO_AM_I (0x0F) reads, not a separate 0x60 device as
+previously assumed; verified by on-wire decode of block b002.
