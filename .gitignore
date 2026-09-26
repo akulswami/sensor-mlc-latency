@@ -65,3 +65,7 @@ data/training/latency-experiment/**/digital.csv
 code/jetson/host_inference/replay_parity
 code/jetson/host_inference/replay_host
 paper/letters/arxiv_build/
+
+# multi-GB Saleae CSV exports, regenerable from the tracked .sal via Logic 2 export; too large for git
+data/training/latency-experiment/block-b006-mlc-i2c-contention/digital.csv
+data/training/latency-experiment/block-sdascl-2026-09-24-b002-mlc-i2c-contention/digital.csv
